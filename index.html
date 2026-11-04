@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1015">
+  <meta name="description" content="Interaktive Golf 4 TDI Motorensimulation mit Drehzahl, Last und Gangwechseln.">
+  <title>Golf 4 TDI · Motor-Simulator</title>
+  <!--
+    APP-ICONS: PNG-Dateien in /icons ablegen:
+      favicon.ico          Standard Favicon (Browser-Tab)
+      favicon.svg          SVG Favicon (moderne Browser)
+      favicon-96x96.png    96 x 96 px (Browser-Tab)
+      apple-touch-icon.png 180 x 180 px (iOS/iPadOS Home-Bildschirm)
+      web-app-manifest-192x192.png 192 x 192 px (Android Chrome / PWA)
+      web-app-manifest-512x512.png 512 x 512 px (Android / hochauflösend / PWA)
+    Quadratisch, sRGB, Motiv mit Sicherheitsabstand zum Rand.
+  -->
+  <link rel="icon" type="image/x-icon" href="icons/favicon.ico">
+  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
+  <link rel="icon" type="image/png" sizes="96x96" href="icons/favicon-96x96.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/web-app-manifest-192x192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/web-app-manifest-512x512.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Golf 4 TDI Simulator">
+  <meta name="application-name" content="Golf 4 TDI Simulator">
+  <meta name="msapplication-TileColor" content="#0b1015">
+  <meta name="msapplication-TileImage" content="icons/web-app-manifest-192x192.png">
+  <link rel="stylesheet" href="style.css">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TDI Simulator">
+</head>
+<body>
+<main class="app">
+  <header class="header">
+    <div class="logo">TDI</div>
+    <div><p class="eyebrow">INTERACTIVE ENGINE LAB</p><h1>Golf 4 <span>1.9 TDI</span></h1></div>
+    <div class="live"><i id="liveDot"></i><span id="stateLabel">BEREIT</span></div>
+  </header>
+
+  <section class="dash">
+    <div class="main-readout">
+      <div><span class="caption">GESCHWINDIGKEIT</span><div class="speed-number"><strong id="speedValue">0</strong><small>km/h</small></div></div>
+      <div><span class="caption">MOTORDREHZAHL</span><div class="rpm-number"><strong id="rpmValue">0</strong><small>U/min</small></div></div>
+    </div>
+    <div class="tach">
+      <div class="tach-top"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><i class="shift-mark" style="left:30%"></i><i class="shift-mark" style="left:50%"></i></div>
+      <div class="tach-track"><div id="tachFill"></div><i></i></div>
+      <div class="tach-bottom"><span>× 1.000 U/min</span><span id="gearLabel">LEERLAUF</span></div>
+    </div>
+    <div class="gear-strip">
+      <span class="caption">GETRIEBE</span>
+      <div class="gear-values"><b id="gearN" class="selected">N</b><b id="gear1">1</b><b id="gear2">2</b><b id="gear3">3</b><b id="gear4">4</b><b id="gear5">5</b></div>
+      <span class="shift-hint" id="shiftHint">Automatik · ↑2000 / ↓1200 U/min oder klicke Gang</span>
+    </div>
+  </section>
+
+  <section class="controls">
+    <div class="section-head"><span>FAHRZEUGSTEUERUNG</span><span class="mode-pill">SIMULATION</span></div>
+    <div class="pedals">
+      <button id="brakeBtn" class="pedal brake" type="button"><span class="pedal-icon">▤</span><strong>BREMSE</strong><small>halten</small></button>
+      <button id="startBtn" class="start" type="button"><span class="start-icon">⏻</span><strong id="startLabel">MOTOR STARTEN</strong><small>Audio nach Berührung aktiv</small></button>
+      <button id="gasBtn" class="pedal gas" type="button"><span class="pedal-icon">⌁</span><strong>GAS</strong><small>halten</small></button>
+    </div>
+    <div class="sliders">
+      <label class="slider-row" for="speedSlider"><span><b>Geschwindigkeit</b><output id="speedOut">0 km/h</output></span><input id="speedSlider" type="range" min="0" max="160" value="0"></label>
+      <label class="slider-row" for="loadSlider"><span><b>Gaspedalstellung</b><output id="loadOut">0 %</output></span><input id="loadSlider" type="range" min="0" max="100" value="0"></label>
+      <label class="slider-row" for="rpmSlider"><span><b>Drehzahl (manuell)</b><output id="rpmOut">0 U/min</output></span><input id="rpmSlider" type="range" min="0" max="4200" value="0"></label>
+    </div>
+    <div class="bottom-row">
+      <label class="toggle"><input id="modToggle" type="checkbox" checked><span class="switch"></span><span>Sanfte Modulation</span></label>
+      <button id="muteBtn" class="mute" type="button">TON AN</button>
+    </div>
+  </section>
+
+  <details class="source-panel">
+    <summary>Audio-Quellen & Hinweise</summary>
+    <p>Die bereinigten Loop-Samples bilden Leerlauf und Fahrbetrieb ab. Zusätzlich wird beim Gasgeben ein Drehzahl-Anstieg aus deiner neuen Aufnahme als kurzer dynamischer Motorsound abgespielt.</p>
+    <label>Leerlauf-Sample <input id="idleFile" type="file" accept="audio/*"></label>
+    <label>Fahr-Sample <input id="driveFile" type="file" accept="audio/*"></label>
+    <p><small>Das zusätzliche Drehzahl-Sweep-Sample ist fest in der Simulation integriert.</small></p>
+    <small>Audiodateien werden nicht an einen Server übertragen.</small>
+  </details>
+  <footer>Demo-Audioengine · Web Audio API · Einstellungen vor Fahrtbeginn vornehmen.</footer>
+</main>
+<script src="script.js"></script>
+</body>
+</html>
