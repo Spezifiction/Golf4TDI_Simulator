@@ -1,85 +1,97 @@
 # Golf 4 TDI Motor Simulator
 
-Eine interaktive Web-App zur Simulation des Motorverhaltens eines VW Golf 4 1.9 TDI. Die Anwendung simuliert realistisch Drehzahl, Geschwindigkeit, Gangwechsel und Motorcharakteristik eines Dieselmotors.
+Eine interaktive Web-App zur realistischen Simulation des Motorverhaltens eines **VW Golf 4 1.9 TDI**. Die Anwendung simuliert Drehzahl, Geschwindigkeit, Gangwechsel und Motorcharakteristik mit physikalisch korrekten Übersetzungsverhältnissen und authentischem Dieselmotor-Verhalten.
 
-![Golf 4 TDI Simulator Screenshot](https://via.placeholder.com/600x400/0b1015/ffffff?text=Golf+4+TDI+Simulator)
+![Golf 4 TDI Simulator Screenshot](https://via.placeholder.com/600x400/05080d/7a8fc8?text=Golf+4+TDI+Simulator)
 
-## Features
+## ✨ Features
 
-- **Realistische Motorphysik**
-  - Physikalisch korrekte Übersetzungsverhältnisse (Motor zu Rad)
-  - Authentisches Dieselmotor-Verhalten (Motorbremse, langsamer Drehzahlanstieg)
-  - Realistische Schaltpunkte (Hochschalten bei 2000 U/min, Runterschalten bei 1200 U/min)
+### 🔧 Realistische Motorphysik
+- **Physikalisch korrekte Übersetzungsverhältnisse** (Motor zu Rad) basierend auf Golf 4 TDI 1.9 Spezifikationen
+- **Authentisches Dieselmotor-Verhalten**: langsamer Drehzahlanstieg, Motorbremse beim Runterschalten
+- **Realistische Schaltpunkte**: Hochschalten bei **2000 U/min**, Runterschalten bei **1200 U/min**
+- **Geschwindigkeitsberechnung**: `v (km/h) = RPM × 0.114 / Übersetzungsverhältnis`
 
-- **Interaktive Steuerung**
-  - Gas- und Bremspedal (halten zum Aktivieren)
-  - Motor Start/Stop
-  - Manuelle Gangwahl durch Klicken auf die Gang-Buttons
-  - Manuelle Drehzahlvorgabe via Slider
-  - Geschwindigkeits- und Lastregelung via Slider
+### 🎮 Interaktive Steuerung
+- **Gas- und Bremspedal** (halten zum Aktivieren, mit Trägheit für realistische Reaktion)
+- **Motor Start/Stop** – Motor ist bei 0 U/min und ohne Ton
+- **Manuelle Gangwahl** durch Klicken auf die Gang-Buttons (N, 1, 2, 3, 4, 5)
+- **Manuelle Drehzahlvorgabe** via Slider
+- **Geschwindigkeits- und Lastregelung** via Slider
+- **Stadtfahrt-Modus** (30s Endlosloop mit Anfahren, Beschleunigen, Schalten, Bremsen, Ampelstopp)
 
-- **Visuelles Feedback**
-  - Echtzeit-Tachometer mit Drehzahlbalken
-  - Ganganzeige mit aktuellem Gang
-  - Geschwindigkeits- und Drehzahlanzeige
-  - Gelbe/rote Markierungen für Schaltpunkte (1200 U/min, 2000 U/min)
+### 🎨 Visuelles Feedback
+- **Echtzeit-Tachometer** mit Drehzahlbalken (blau-lila Farbschema wie Golf 4 Tacho)
+- **Ganganzeige** mit aktuellem Gang und farbiger Hervorhebung
+- **Geschwindigkeits- und Drehzahlanzeige** in Echtzeit
+- **Rote Markierungslinien** für Schaltpunkte (1200 U/min, 2000 U/min)
+- **Golf 4 Tacho-Design**: dunkler Hintergrund (#05080d), lila-blaue Ziffern (#7a8fc8), rote Akzente (#ff3300)
 
-- **Audio**
-  - Leerlauf- und Fahr-Samples
-  - Dynamischer Drehzahl-Anstieg beim Gasgeben
-  - Benutzerdefinierte Audio-Samples können hochgeladen werden
+### 🔊 Audio
+- **Leerlauf-Loop** und **dezent zugemischter Fahr-Loop** für kontinuierlichen Sound; das hochfrequente Diesel-Nageln wird bei steigender Drehzahl durch geringeren Fahr-Layer-Pegel, langsamere Sample-Wiedergabe und einen tieferen Filter reduziert.
+- **Dynamischer Drehzahl-Anstieg** beim Gasgeben
+- **Benutzerdefinierte Audio-Samples** können hochgeladen werden (Leerlauf & Fahrt)
+- **iOS-kompatibel**: Audio wird nach erster Nutzerinteraktion (z.B. "Motor Starten") aktiviert
 
-## Verwendung
+### 📱 Plattformunterstützung
+- **Responsive Design**: Optimiert für Mobile, Tablet und Desktop
+- **PWA-fähig**: Kann als App auf dem Homescreen installiert werden (Android/iOS)
+- **Touch-optimiert**: Große Bedienelemente für Touchscreens
+
+## 📥 Verwendung
 
 ### Lokale Nutzung
-1. Klone das Repository oder lade die Dateien herunter
-2. Öffne `index.html` in einem modernen Browser (Chrome, Firefox, Safari, Edge)
-3. Klicke auf "Motor Starten" um die Simulation zu beginnen
+1. Klone das Repository oder lade alle Dateien herunter
+2. Stelle sicher, dass die Ordnerstruktur erhalten bleibt:
+   ```
+   golf4_tdi_racing/
+   ├── index.html
+   ├── style.css
+   ├── script.js
+   ├── manifest.webmanifest
+   ├── icons/
+   │   ├── favicon.ico
+   │   ├── favicon.svg
+   │   ├── favicon-96x96.png
+   │   ├── apple-touch-icon.png
+   │   ├── web-app-manifest-192x192.png
+   │   └── web-app-manifest-512x512.png
+   └── audio/
+       ├── leerlauf-loop.mp3
+       ├── fahr-loop.mp3
+       └── drehzahl-anhebung.mp3
+   ```
+3. Öffne `index.html` in einem modernen Browser (Chrome, Firefox, Safari, Edge)
+4. Klicke auf **"MOTOR STARTEN"** um die Simulation zu beginnen
+5. Nutze die Gas/Bremspedale oder Slider für die Steuerung
 
 ### GitHub Pages
 1. Erstelle ein neues GitHub Repository
-2. Lade alle Dateien (inkl. `icons/` und `audio/` Ordner) hoch
-3. Aktiviere GitHub Pages in den Repository-Einstellungen
+2. Lade **alle Dateien** (inkl. `icons/`, `audio/` und `manifest.webmanifest`) hoch
+3. Aktiviere **GitHub Pages** in den Repository-Einstellungen:
+   - Settings → Pages → Source: `main` branch
 4. Die App ist dann unter `https://[dein-benutzername].github.io/[repository-name]/` erreichbar
 
-## Dateistruktur
+### Wichtig für Audio
+- **HTTPS oder localhost** erforderlich (Browser-Beschränkung für Web Audio API)
+- **Erste Nutzerinteraktion** nötig (z.B. "Motor Starten" klicken) bevor Audio funktioniert
+- Auf iOS muss der Benutzer zuerst eine Interaktion durchführen
 
-```
-golf4_tdi_racing/
-├── index.html          # Haupt-HTML-Datei
-├── style.css           # Stylesheets
-├── script.js           # Haupt-JavaScript-Logik
-├── manifest.webmanifest # PWA Manifest
-├── sw.js               # Service Worker (optional)
-├── README.md           # Diese Datei
-├── icons/              # App-Icons
-│   ├── favicon.ico
-│   ├── favicon.svg
-│   ├── favicon-96x96.png
-│   ├── apple-touch-icon.png
-│   ├── web-app-manifest-192x192.png
-│   └── web-app-manifest-512x512.png
-└── audio/              # Audio-Samples
-    ├── leerlauf-loop.mp3
-    ├── fahr-loop.mp3
-    └── drehzahl-anhebung.mp3
-```
-
-## Technische Details
+## 📊 Technische Details
 
 ### Übersetzungsverhältnisse (Motor zu Rad)
-
-| Gang | Verhältnis | Beispiel (2000 U/min) |
-|------|------------|------------------------|
-| 1    | 12.804     | ~17.8 km/h             |
-| 2    | 6.991      | ~32.4 km/h             |
-| 3    | 4.568      | ~49.1 km/h             |
-| 4    | 3.277      | ~68.4 km/h             |
-| 5    | 2.521      | ~88.1 km/h             |
+| Gang | Verhältnis | Beispiel bei 2000 U/min |
+|------|------------|--------------------------|
+| 1    | 12.804     | ~17.8 km/h               |
+| 2    | 6.991      | ~32.4 km/h               |
+| 3    | 4.568      | ~49.1 km/h               |
+| 4    | 3.277      | ~68.4 km/h               |
+| 5    | 2.521      | ~88.1 km/h               |
 
 ### Schaltpunkte
-- **Hochschalten**: 2000 U/min
-- **Runterschalten**: 1200 U/min
+- **Hochschalten**: **2000 U/min** (rote Markierung im Tachometer)
+- **Runterschalten**: **1200 U/min** (rote Markierung im Tachometer)
+- **Schaltverzögerung**: 600ms (realistisch für manuelles Getriebe)
 
 ### Geschwindigkeitsberechnung
 ```
@@ -87,50 +99,115 @@ Geschwindigkeit (km/h) = RPM × 0.114 / Übersetzungsverhältnis
 ```
 
 ### Motorbremse
-- Beim Runterschalten: Geschwindigkeit wird um 2% reduziert
-- Drehzahl steigt entsprechend dem Übersetzungsverhältnis
+- Beim **Runterschalten**: Geschwindigkeit wird um 2% reduziert
+- Drehzahl steigt entsprechend dem neuen Übersetzungsverhältnis
 
-## Browser-Kompatibilität
+### Drehzahlberechnung
+```
+Ziel-RPM = Leerlaufdrehzahl (850) + Last × (Max-RPM - Leerlaufdrehzahl)
+Leerlaufdrehzahl = 850 U/min
+Max-RPM = 4200 U/min
+```
 
-- **Chrome**: Voll unterstütz (empfohlen)
-- **Firefox**: Voll unterstützt
-- **Safari**: Voll unterstützt (iOS & macOS)
-- **Edge**: Voll unterstützt
-- **Mobile Browser**: Voll unterstützt (Touch-optimiert)
+### Stadtfahrt-Modus
+- **30-Sekunden-Endlosloop** mit Geschwindigkeitsprofil: Anfahren, Schalten, Konstantfahrt bei ca. 45–50 km/h, Verzögern, Ampelstopp und anschließende Wartephase bis zum nächsten Anfahren.
+- Die Stadtfahrt verwendet feste Geschwindigkeitsziele mit begrenzter Beschleunigung und Verzögerung. Die Motordrehzahl folgt Geschwindigkeit und Gang mit kurzer Trägheit, damit Schaltvorgänge nicht sprunghaft klingen. Sie wird nicht direkt aus der Gaspedal-Last bis zur Maximaldrehzahl hochgeregelt.
+- Beim Ampelstopp wird die Geschwindigkeit auf 0 km/h abgebremst; die Motordrehzahl bleibt im Leerlauf.
+- **Manuelle Übersteuerung**: Nutzeraktionen (Gas, Bremse, Gangwahl oder manuelle Drehzahlvorgabe) beenden den Stadtfahrt-Modus.
 
-**Hinweis**: Die Web Audio API muss verfügbar sein. Für beste Ergebnisse HTTPS oder localhost verwenden.
+## 🎨 Farbdesign (Golf 4 Tacho)
+- **Hintergrund**: Dunkelblau/Schwarz (#05080d)
+- **Ziffern & Skala**: Lila-Blau (#7a8fc8)
+- **Schaltpunkt-Markierungen**: Rot (#ff0000)
+- **Aktiver Gang**: Rot (#ff3300) auf blauem Hintergrund
+- **Tachometer-Füllung**: Gradient von #2a385c zu #4a5c8a zu #7a8fc8
 
-## Audio-Samples
+## 📁 Dateistruktur
+```
+golf4_tdi_racing/
+├── index.html              # Haupt-HTML-Datei
+├── style.css               # Stylesheets (Golf 4 Tacho-Design)
+├── script.js               # Haupt-JavaScript-Logik
+├── manifest.webmanifest    # PWA Manifest für App-Installation
+├── README.md               # Diese Datei
+├── icons/                  # App-Icons für alle Plattformen
+│   ├── favicon.ico
+│   ├── favicon.svg
+│   ├── favicon-96x96.png
+│   ├── apple-touch-icon.png          # iOS Home-Bildschirm (180x180)
+│   ├── web-app-manifest-192x192.png  # Android PWA
+│   └── web-app-manifest-512x512.png  # Android (hochauflösend)
+└── audio/                  # Audio-Samples
+    ├── leerlauf-loop.mp3   # Leerlauf-Sound (Loop)
+    ├── fahr-loop.mp3        # Fahr-Sound (Loop)
+    └── drehzahl-anhebung.mp3 # Drehzahl-Anstieg (einmalig)
+```
 
+## 🌐 Browser-Kompatibilität
+| Browser       | Unterstützung | Hinweise |
+|---------------|---------------|----------|
+| Chrome        | ✅ Voll       | Empfohlen |
+| Firefox       | ✅ Voll       |          |
+| Safari        | ✅ Voll       | iOS & macOS |
+| Edge          | ✅ Voll       |          |
+| Mobile Browser| ✅ Voll       | Touch-optimiert |
+
+**Voraussetzung**: Web Audio API muss verfügbar sein. Für beste Ergebnisse **HTTPS** oder **localhost** verwenden.
+
+## 🔊 Audio-Samples
 Die Simulation verwendet drei Audio-Dateien:
-1. **leerlauf-loop.mp3** - Leerlauf-Sound (Loop)
-2. **fahr-loop.mp3** - Fahr-Sound (Loop)
-3. **drehzahl-anhebung.mp3** - Drehzahl-Anstieg (einmalig beim Gasgeben)
+1. **leerlauf-loop.mp3** – Leerlauf-Sound (Loop)
+2. **fahr-loop.mp3** – Fahr-Sound (Loop)
+3. **drehzahl-anhebung.mp3** – Drehzahl-Anstieg (wird beim Gasgeben abgespielt)
 
 ### Benutzerdefinierte Samples
-Im Abschnitt "Audio-Quellen & Hinweise" können eigene Audio-Dateien hochgeladen werden:
-- Leerlauf-Sample (ersetzt leerlauf-loop.mp3)
-- Fahr-Sample (ersetzt fahr-loop.mp3)
+Im Abschnitt **"Audio-Quellen & Hinweise"** können eigene Audio-Dateien hochgeladen werden:
+- **Leerlauf-Sample** (ersetzt `leerlauf-loop.mp3`)
+- **Fahr-Sample** (ersetzt `fahr-loop.mp3`)
 
-**Wichtig**: Audiodateien werden nur lokal verarbeitet und nicht an Server übertragen.
+**Wichtig**:
+- Audiodateien werden **nur lokal** verarbeitet
+- Keine Übertragung an Server
+- Format: MP3 empfohlen
+- Das Drehzahl-Sweep-Sample ist fest integriert
 
-## Lizenz
+## 📝 Changelog / Letzte Änderungen
+- **Farben**: An Golf 4 Tacho angepasst (lila-blaue Ziffern statt Babyblau)
+- **Schaltpunkte**: Gelbe/rote Markierungen bei 1200 U/min und 2000 U/min
+- **Stadtfahrt-Modus**: 30s Endlosloop mit realistischer Abfolge
+- **Manueller Modus**: Gangwechsel per Klick, Drehzahlvorgabe via Slider
+- **Motorbremse**: Realistische Verzögerung beim Runterschalten
+- **PWA**: Icons für Android/iOS/Homescreen hinzugefügt
 
-Dieses Projekt ist für den persönlichen Gebrauch bestimmt. Die Audio-Samples unterliegen möglicherweise Urheberrechten.
+## 🛠️ Beitrag
+Pull Requests sind willkommen! Bitte beachte:
+- **Übersetzungsverhältnisse** müssen realistisch bleiben
+- **Dieselmotor-Verhalten** sollte erhalten bleiben (langsamer Drehzahlanstieg, Motorbremse)
+- **Benutzeroberfläche** sollte intuitiv bleiben
+- **Farben** sollten dem Golf 4 Tacho entsprechen (#7a8fc8 für Ziffern, #05080d für Hintergrund)
 
-## Beitrag
+## 📄 Lizenz
+Dieses Projekt ist für den **persönlichen Gebrauch** bestimmt. Die Audio-Samples unterliegen möglicherweise Urheberrechten.
 
-Pull Requests sind willkommen. Bitte stellt sicher, dass:
-- Die Übersetzungsverhältnisse realistisch bleiben
-- Das Dieselmotor-Verhalten erhalten bleibt
-- Die Benutzeroberfläche intuitiv bleibt
-
-## Credits
-
+## 🙏 Credits
 - **Motor-Daten**: Basierend auf VW Golf 4 1.9 TDI Spezifikationen
 - **Audio-Engine**: Web Audio API
-- **Design**: Responsives, mobiles First
+- **Design**: Responsives, mobiles First mit Golf 4 Tacho-Farben
 
 ---
 
 **Erstellt mit Web Audio API und Vanilla JavaScript**
+
+
+## 🔁 Stadtfahrt & Klang – aktuelle Abstimmung
+- Der 30-Sekunden-Fahrzyklus wiederholt sich automatisch und startet jede Runde zuverlässig im Stand.
+- Beschleunigung, Konstantfahrt, Verzögerung und Ampelstopp werden weich überblendet; die Drehzahl folgt der Geschwindigkeit im jeweils eingelegten Gang.
+- Während der Fahrt bleibt der Leerlauf-/Grundmotor hörbar. Der Fahr-Sample-Layer ist leiser und stärker tiefpassgefiltert, damit das Diesel-Nageln bei höherer Drehzahl nicht dominiert.
+- Der kurze Drehzahl-Sweep beim Gasgeben ist ebenfalls leiser abgestimmt.
+
+
+### Audio-Abmischung (aktualisiert)
+- Leerlauf-Sample im Stand nur leise als Basis; während der Fahrt wird es weiter abgesenkt, damit das Diesel-Nageln nicht dominiert.
+- Fahr-Sample übernimmt bei steigender Drehzahl und Geschwindigkeit deutlich stärker.
+- Größerer, geglätteter Playback-Rate-Bereich des Fahr-Samples macht Beschleunigen und Hochschalten hörbarer.
+- Filterung des Leerlauf-Samples reduziert scharfe Nagelanteile; der Fahr-Sound erhält mit Drehzahl mehr Obertöne.
