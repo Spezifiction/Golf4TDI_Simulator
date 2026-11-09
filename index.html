@@ -80,10 +80,10 @@
 
   <details class="source-panel">
     <summary>Audio-Quellen & Hinweise</summary>
-    <p>Die bereinigten Loop-Samples bilden Leerlauf und Fahrbetrieb ab. Zusätzlich wird beim Gasgeben ein Drehzahl-Anstieg aus deiner neuen Aufnahme als kurzer dynamischer Motorsound abgespielt.</p>
+    <p>Die Soundengine kombiniert die ursprünglichen Golf-4-TDI-Samples mit den T5-Aufnahmen: T5-Leerlauf, gleichmäßige Fahrt und höhere Last werden abhängig von Drehzahl, Geschwindigkeit und Gaspedal beigemischt. Beim Gasgeben kommt zusätzlich ein dynamischer Drehzahl-Anstieg hinzu.</p>
     <label>Leerlauf-Sample <input id="idleFile" type="file" accept="audio/*"></label>
     <label>Fahr-Sample <input id="driveFile" type="file" accept="audio/*"></label>
-    <p><small>Das zusätzliche Drehzahl-Sweep-Sample ist fest in der Simulation integriert.</small></p>
+    <p><small>Das zusätzliche Drehzahl-Sweep-Sample und die T5-Soundlayer sind fest integriert. Bei iOS kann nach längerem Standby ein Tippen auf „Ton aktivieren“ erforderlich sein.</small></p>
     <small>Audiodateien werden nicht an einen Server übertragen.</small>
   </details>
   <footer>Demo-Audioengine · Web Audio API · Einstellungen vor Fahrtbeginn vornehmen. | Für private Nutzung. Mit KI-Unterstützung erstellt.</footer>

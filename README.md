@@ -2,8 +2,7 @@
 
 Eine interaktive Web-App zur realistischen Simulation des Motorverhaltens eines **VW Golf 4 1.9 TDI**. Die Anwendung simuliert Drehzahl, Geschwindigkeit, Gangwechsel und Motorcharakteristik mit physikalisch korrekten Übersetzungsverhältnissen und authentischem Dieselmotor-Verhalten.
 
-Website aufrufen und ggfs. auf den Homescreen legen:
-https://spezifiction.github.io/Golf4TDI_Simulator/
+![Golf 4 TDI Simulator Screenshot](https://via.placeholder.com/600x400/05080d/7a8fc8?text=Golf+4+TDI+Simulator)
 
 ## ✨ Features
 
@@ -65,13 +64,6 @@ https://spezifiction.github.io/Golf4TDI_Simulator/
 3. Öffne `index.html` in einem modernen Browser (Chrome, Firefox, Safari, Edge)
 4. Klicke auf **"MOTOR STARTEN"** um die Simulation zu beginnen
 5. Nutze die Gas/Bremspedale oder Slider für die Steuerung
-
-### GitHub Pages
-1. Erstelle ein neues GitHub Repository
-2. Lade **alle Dateien** (inkl. `icons/`, `audio/` und `manifest.webmanifest`) hoch
-3. Aktiviere **GitHub Pages** in den Repository-Einstellungen:
-   - Settings → Pages → Source: `main` branch
-4. Die App ist dann unter `https://[dein-benutzername].github.io/[repository-name]/` erreichbar
 
 ### Wichtig für Audio
 - **HTTPS oder localhost** erforderlich (Browser-Beschränkung für Web Audio API)
@@ -156,10 +148,13 @@ golf4_tdi_racing/
 **Voraussetzung**: Web Audio API muss verfügbar sein. Für beste Ergebnisse **HTTPS** oder **localhost** verwenden.
 
 ## 🔊 Audio-Samples
-Die Simulation verwendet drei Audio-Dateien:
-1. **leerlauf-loop.mp3** – Leerlauf-Sound (Loop)
-2. **fahr-loop.mp3** – Fahr-Sound (Loop)
-3. **drehzahl-anhebung.mp3** – Drehzahl-Anstieg (wird beim Gasgeben abgespielt)
+Die Simulation verwendet fünf Audio-Dateien:
+1. **leerlauf-loop.mp3** – Leerlauf-Sound Golf 4 TDI (Loop)
+2. **leerlauf-t5-loop.mp3** – Leerlauf-Sound T5 TDI (Loop)
+3. **fahr-loop.mp3** – Fahr-Sound Golf 4 TDI (Loop)
+4. **fahrt-t5-cruise-loop.mp3** – Fahr-Sound T5 TDI (Loop)
+4. **ffahrt-t5-last-loop.mp3** – Fahr-Sound T5 TDI mit höherer Last (Loop)
+5. **drehzahl-anhebung.mp3** – Drehzahl-Anstieg (wird beim Gasgeben abgespielt)
 
 ### Benutzerdefinierte Samples
 Im Abschnitt **"Audio-Quellen & Hinweise"** können eigene Audio-Dateien hochgeladen werden:
@@ -198,17 +193,3 @@ Dieses Projekt ist für den **persönlichen Gebrauch** bestimmt. Die Audio-Sampl
 ---
 
 **Erstellt mit Web Audio API und Vanilla JavaScript**
-
-
-## 🔁 Stadtfahrt & Klang – aktuelle Abstimmung
-- Der 30-Sekunden-Fahrzyklus wiederholt sich automatisch und startet jede Runde zuverlässig im Stand.
-- Beschleunigung, Konstantfahrt, Verzögerung und Ampelstopp werden weich überblendet; die Drehzahl folgt der Geschwindigkeit im jeweils eingelegten Gang.
-- Während der Fahrt bleibt der Leerlauf-/Grundmotor hörbar. Der Fahr-Sample-Layer ist leiser und stärker tiefpassgefiltert, damit das Diesel-Nageln bei höherer Drehzahl nicht dominiert.
-- Der kurze Drehzahl-Sweep beim Gasgeben ist ebenfalls leiser abgestimmt.
-
-
-### Audio-Abmischung (aktualisiert)
-- Leerlauf-Sample im Stand nur leise als Basis; während der Fahrt wird es weiter abgesenkt, damit das Diesel-Nageln nicht dominiert.
-- Fahr-Sample übernimmt bei steigender Drehzahl und Geschwindigkeit deutlich stärker.
-- Größerer, geglätteter Playback-Rate-Bereich des Fahr-Samples macht Beschleunigen und Hochschalten hörbarer.
-- Filterung des Leerlauf-Samples reduziert scharfe Nagelanteile; der Fahr-Sound erhält mit Drehzahl mehr Obertöne.

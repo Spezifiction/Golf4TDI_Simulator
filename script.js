@@ -4,8 +4,10 @@
 (() => {
   "use strict";
   const $=id=>document.getElementById(id);
-  const s={ctx:null,master:null,idleGain:null,driveGain:null,idleFilter:null,driveFilter:null,
-    idleSource:null,driveSource:null,idleBuffer:null,driveBuffer:null,revBuffer:null,revGain:null,revFilter:null,revSource:null,running:false,muted:false,
+  const s={ctx:null,initPromise:null,master:null,idleGain:null,driveGain:null,idleFilter:null,driveFilter:null,
+    t5IdleGain:null,t5CruiseGain:null,t5LoadGain:null,t5IdleFilter:null,t5DriveFilter:null,
+    idleSource:null,driveSource:null,t5IdleSource:null,t5CruiseSource:null,t5LoadSource:null,
+    idleBuffer:null,driveBuffer:null,t5IdleBuffer:null,t5CruiseBuffer:null,t5LoadBuffer:null,revBuffer:null,revGain:null,revFilter:null,revSource:null,running:false,muted:false,
     speed:0,load:0,rpm:0,gear:0,gasHeld:false,brakeHeld:false,lastTime:0,raf:0,mod:1,modTimer:0,urls:[],
     useManualRpm:false,manualRpmTarget:null,shiftCooldown:0,
     cityDriveActive:false,cityDriveStartTime:0,cityDriveLoopInterval:null,lastCityAction:0,cityDriveCycle:0,cityDriveGasPlayed:false,cityDriveLoadTarget:0,cityDriveSpeedTarget:0,cityDriveBrakeActive:false};
@@ -42,22 +44,79 @@
     ["N","1","2","3","4","5"].forEach((g,i)=>{const el=$("gear"+g);if(el)el.classList.toggle("selected",s.gear===i)});
     $("rpmSlider").value=Math.round(s.rpm);
   }
-  async function getBuffer(url){const r=await fetch(url);if(!r.ok)throw Error(`Audio fehlt: ${url}`);return s.ctx.decodeAudioData(await r.arrayBuffer())}
-  function makeLoop(buffer,filter,gain){const src=s.ctx.createBufferSource();src.buffer=buffer;src.loop=true;src.connect(filter);filter.connect(gain);src.start();return src}
+  async function getBuffer(url,ctx=s.ctx){
+    const r=await fetch(url,{cache:"no-cache"});
+    if(!r.ok)throw Error(`Audio fehlt: ${url}`);
+    return ctx.decodeAudioData(await r.arrayBuffer());
+  }
+  function makeLoop(buffer,filter){
+    if(!buffer||!s.ctx||s.ctx.state==="closed")return null;
+    const src=s.ctx.createBufferSource();src.buffer=buffer;src.loop=true;src.connect(filter);src.start();return src;
+  }
+  function connectLoopSources(){
+    if(!s.ctx||s.ctx.state!=="running")return;
+    if(!s.idleSource)s.idleSource=makeLoop(s.idleBuffer,s.idleFilter);
+    if(!s.driveSource)s.driveSource=makeLoop(s.driveBuffer,s.driveFilter);
+    if(!s.t5IdleSource)s.t5IdleSource=makeLoop(s.t5IdleBuffer,s.t5IdleFilter);
+    if(!s.t5CruiseSource)s.t5CruiseSource=makeLoop(s.t5CruiseBuffer,s.t5DriveFilter);
+    if(!s.t5LoadSource)s.t5LoadSource=makeLoop(s.t5LoadBuffer,s.t5DriveFilter);
+  }
   async function init(){
-    if(s.ctx)return;
-    const C=window.AudioContext||window.webkitAudioContext;if(!C)throw Error("Web Audio API nicht verfügbar");
-    s.ctx=new C();s.master=s.ctx.createGain();s.master.gain.value=.82;
-    s.idleFilter=s.ctx.createBiquadFilter();s.driveFilter=s.ctx.createBiquadFilter();
-    [s.idleFilter,s.driveFilter].forEach(f=>{f.type="lowpass";f.frequency.value=9000;f.Q.value=.55});
-    s.idleGain=s.ctx.createGain();s.driveGain=s.ctx.createGain();s.idleGain.gain.value=0;s.driveGain.gain.value=0;
-    s.idleBuffer=await getBuffer("audio/leerlauf-loop.mp3");s.driveBuffer=await getBuffer("audio/fahr-loop.mp3");
-    s.revBuffer=await getBuffer("audio/drehzahl-anhebung.mp3");
-    s.revFilter=s.ctx.createBiquadFilter();s.revFilter.type="bandpass";s.revFilter.frequency.value=1900;s.revFilter.Q.value=.65;
-    s.revGain=s.ctx.createGain();s.revGain.gain.value=0;s.revFilter.connect(s.revGain);s.revGain.connect(s.master);
-    s.idleGain.connect(s.master);s.driveGain.connect(s.master);s.master.connect(s.ctx.destination);
-    // Audioquellen werden erst beim Start erstellt, NICHT in init()
-    s.idleSource=null;s.driveSource=null;s.revSource=null;
+    if(s.ctx&&s.ctx.state!=="closed"&&s.idleBuffer&&s.driveBuffer&&s.t5IdleBuffer&&s.t5CruiseBuffer&&s.t5LoadBuffer)return;
+    if(s.initPromise)return s.initPromise;
+    s.initPromise=(async()=>{
+      const C=window.AudioContext||window.webkitAudioContext;
+      if(!C)throw Error("Web Audio API nicht verfügbar");
+      const ctx=new C();s.ctx=ctx;
+      s.idleSource=s.driveSource=s.t5IdleSource=s.t5CruiseSource=s.t5LoadSource=s.revSource=null;
+      ctx.addEventListener("statechange",updateAudioStatus);
+      // resume() unmittelbar innerhalb der Nutzeraktion anstoßen; iOS kann
+      // die Audio-Freigabe nach asynchronem Datei-Laden sonst verlieren.
+      const resumeAttempt=ctx.resume().catch(err=>{console.warn("AudioContext resume:",err)});
+      s.master=ctx.createGain();s.master.gain.value=s.muted?0:.82;
+      s.idleFilter=ctx.createBiquadFilter();s.driveFilter=ctx.createBiquadFilter();
+      [s.idleFilter,s.driveFilter].forEach(f=>{f.type="lowpass";f.frequency.value=9000;f.Q.value=.55});
+      s.t5IdleFilter=ctx.createBiquadFilter();s.t5IdleFilter.type="lowpass";s.t5IdleFilter.frequency.value=5200;s.t5IdleFilter.Q.value=.65;
+      s.t5DriveFilter=ctx.createBiquadFilter();s.t5DriveFilter.type="lowpass";s.t5DriveFilter.frequency.value=6800;s.t5DriveFilter.Q.value=.6;
+      s.idleGain=ctx.createGain();s.driveGain=ctx.createGain();
+      s.t5IdleGain=ctx.createGain();s.t5CruiseGain=ctx.createGain();s.t5LoadGain=ctx.createGain();
+      [s.idleGain,s.driveGain,s.t5IdleGain,s.t5CruiseGain,s.t5LoadGain].forEach(g=>g.gain.value=0);
+      s.revFilter=ctx.createBiquadFilter();s.revFilter.type="bandpass";s.revFilter.frequency.value=1900;s.revFilter.Q.value=.65;
+      s.revGain=ctx.createGain();s.revGain.gain.value=0;
+      // Einmalige Verkabelung: makeLoop() darf keine zusätzlichen Gain-Pfade
+      // pro Motorstart anlegen.
+      s.idleFilter.connect(s.idleGain);s.driveFilter.connect(s.driveGain);
+      s.t5IdleFilter.connect(s.t5IdleGain);s.t5DriveFilter.connect(s.t5CruiseGain);s.t5DriveFilter.connect(s.t5LoadGain);
+      [s.idleGain,s.driveGain,s.t5IdleGain,s.t5CruiseGain,s.t5LoadGain,s.revGain].forEach(g=>g.connect(s.master));
+      s.revFilter.connect(s.revGain);s.master.connect(ctx.destination);
+      const [idle,drive,rev,t5Idle,t5Cruise,t5Load]=await Promise.all([
+        getBuffer("audio/leerlauf-loop.mp3",ctx),getBuffer("audio/fahr-loop.mp3",ctx),
+        getBuffer("audio/drehzahl-anhebung.mp3",ctx),getBuffer("audio/leerlauf-t5-loop.mp3",ctx),
+        getBuffer("audio/fahrt-t5-cruise-loop.mp3",ctx),getBuffer("audio/fahrt-t5-last-loop.mp3",ctx)
+      ]);
+      s.idleBuffer=idle;s.driveBuffer=drive;s.revBuffer=rev;
+      s.t5IdleBuffer=t5Idle;s.t5CruiseBuffer=t5Cruise;s.t5LoadBuffer=t5Load;
+      await resumeAttempt;
+      if(ctx.state==="suspended")await ctx.resume();
+      if(ctx.state==="closed")throw Error("AudioContext wurde geschlossen");
+    })();
+    try{await s.initPromise}
+    catch(err){
+      const old=s.ctx;s.ctx=null;s.idleBuffer=s.driveBuffer=s.revBuffer=null;
+      s.t5IdleBuffer=s.t5CruiseBuffer=s.t5LoadBuffer=null;
+      if(old&&old.state!=="closed")try{await old.close()}catch(_){}
+      throw err;
+    } finally {s.initPromise=null}
+  }
+  async function recoverAudio(){
+    await init();
+    if(s.ctx.state==="suspended")await s.ctx.resume();
+    if(s.ctx.state!=="running")throw Error(`AudioContext ist ${s.ctx.state}`);
+    const now=s.ctx.currentTime;
+    s.master.gain.cancelScheduledValues(now);
+    s.master.gain.setTargetAtTime(s.muted?0:.82,now,.035);
+    if(s.running){connectLoopSources();audio()}
+    return true;
   }
   function selectGear(){
     // Fliehkraftkupplung: Gang N -> 1 ab 1000 RPM
@@ -100,39 +159,36 @@
     return 0;
   }
   function audio(){
-    if(!s.ctx||!s.running)return;
+    if(!s.ctx||s.ctx.state!=="running"||!s.running)return;
     const now=s.ctx.currentTime;
-    if(s.rpm <= 0){
-      s.idleGain.gain.setTargetAtTime(0,now,.08);
-      s.driveGain.gain.setTargetAtTime(0,now,.08);
-      s.revGain.gain.setTargetAtTime(0,now,.08);
+    if(s.rpm<=0){
+      [s.idleGain,s.driveGain,s.t5IdleGain,s.t5CruiseGain,s.t5LoadGain,s.revGain].forEach(g=>g.gain.setTargetAtTime(0,now,.08));
       return;
     }
-
-    // Der Leerlauf-Sample ist im Stand nur eine leise Basis. Sobald das
-    // Fahrzeug fährt bzw. die Drehzahl steigt, übernimmt der Fahr-Sample
-    // deutlich hörbar – so werden Last- und Drehzahländerungen wahrnehmbar.
     const norm=Math.max(0,Math.min(1,(s.rpm-850)/2700));
     const moving=Math.max(0,Math.min(1,s.speed/12));
-    const audible=s.muted?0:1;
     const modulation=s.mod;
-
-    // Leerlauf-Nageln stark zurücknehmen, besonders während der Fahrt.
-    const idleLevel=(.20 - norm*.12 - moving*.08) * audible * modulation;
-    // Fahrgeräusch trägt den Motorcharakter und folgt Drehzahl sowie Last.
-    const driveLevel=(.30 + norm*.34 + moving*.16 + s.load*.12) * audible * modulation;
-    s.idleGain.gain.setTargetAtTime(Math.max(.025,idleLevel),now,.24);
-    s.driveGain.gain.setTargetAtTime(Math.min(.92,driveLevel),now,.20);
-
-    // Größerer, aber begrenzter Drehzahlbereich: hörbarer Tonhöhenanstieg
-    // beim Beschleunigen und hörbares Abfallen beim Hochschalten.
-    s.idleSource.playbackRate.setTargetAtTime(Math.max(.86,Math.min(1.18,.88+norm*.28)),now,.22);
-    s.driveSource.playbackRate.setTargetAtTime(Math.max(.82,Math.min(1.62,.82+norm*.76)),now,.18);
-
-    // Das Leerlauf-Sample wird dunkler gefiltert; der Fahr-Layer darf
-    // mit steigender Drehzahl mehr Obertöne und damit Motorcharakter zeigen.
+    const idleLevel=s.muted?0:Math.max(.025,.20-norm*.12-moving*.08)*modulation;
+    const driveLevel=s.muted?0:Math.min(.92,.30+norm*.34+moving*.16+s.load*.12)*modulation;
+    // Die T5-Aufnahmen ergänzen den ursprünglichen Klang: ruhiger T5-Leerlauf
+    // unten, gleichmäßiger Fahrtklang bei Bewegung und Last-Sample bei Gas.
+    const t5IdleLevel=s.muted?0:Math.max(.015,.16-norm*.10-moving*.035)*modulation;
+    const t5CruiseLevel=s.muted?0:Math.min(.18,.035+moving*.075+norm*.025)*modulation;
+    const t5LoadLevel=s.muted?0:Math.min(.17,.025+norm*.035+s.load*.105)*modulation;
+    s.idleGain.gain.setTargetAtTime(idleLevel,now,.24);
+    s.driveGain.gain.setTargetAtTime(driveLevel,now,.20);
+    s.t5IdleGain.gain.setTargetAtTime(t5IdleLevel,now,.28);
+    s.t5CruiseGain.gain.setTargetAtTime(t5CruiseLevel,now,.30);
+    s.t5LoadGain.gain.setTargetAtTime(t5LoadLevel,now,.24);
+    if(s.idleSource)s.idleSource.playbackRate.setTargetAtTime(Math.max(.86,Math.min(1.18,.88+norm*.28)),now,.22);
+    if(s.driveSource)s.driveSource.playbackRate.setTargetAtTime(Math.max(.82,Math.min(1.62,.82+norm*.76)),now,.18);
+    if(s.t5IdleSource)s.t5IdleSource.playbackRate.setTargetAtTime(.92+norm*.22,now,.25);
+    if(s.t5CruiseSource)s.t5CruiseSource.playbackRate.setTargetAtTime(.88+norm*.42,now,.22);
+    if(s.t5LoadSource)s.t5LoadSource.playbackRate.setTargetAtTime(.86+norm*.50,now,.18);
     s.driveFilter.frequency.setTargetAtTime(1900+s.load*3000+norm*1900,now,.24);
     s.idleFilter.frequency.setTargetAtTime(1250+s.load*350,now,.30);
+    s.t5IdleFilter.frequency.setTargetAtTime(1100+norm*2300,now,.30);
+    s.t5DriveFilter.frequency.setTargetAtTime(1800+s.load*2800+norm*2300,now,.24);
   }
   function playRevSweep(){
     if(!s.ctx||!s.running||!s.revBuffer||s.muted||s.rpm<=0)return;
@@ -252,45 +308,44 @@
     ui();audio();s.raf=requestAnimationFrame(tick);
   }
   async function start(){
-    try{await init();await s.ctx.resume();
-      // Audioquellen erstellen und starten NUR nach resume() für iOS-Kompatibilität
-      if(!s.idleSource)s.idleSource=makeLoop(s.idleBuffer,s.idleFilter,s.idleGain);
-      if(!s.driveSource)s.driveSource=makeLoop(s.driveBuffer,s.driveFilter,s.driveGain);
-      
+    try{
+      if(s.running){await recoverAudio();return}
+      await init();
+      if(s.ctx.state!=="running")await s.ctx.resume();
+      if(s.ctx.state!=="running")throw Error("AudioContext konnte nicht gestartet werden");
+      const now=s.ctx.currentTime;
+      s.master.gain.cancelScheduledValues(now);
+      s.master.gain.setTargetAtTime(s.muted?0:.82,now,.025);
+      connectLoopSources();
+      if(!s.idleSource||!s.driveSource||!s.t5IdleSource||!s.t5CruiseSource||!s.t5LoadSource)
+        throw Error("Audioquellen konnten nicht gestartet werden");
       s.running=true;s.lastTime=performance.now();
-      // Motor startet mit Leerlaufdrehzahl
-      s.rpm = IDLE;
-      s.load = 0;
-      s.speed = 0;
-      s.gear = 0;
+      s.rpm=IDLE;s.load=0;s.speed=0;s.gear=0;
       s.useManualRpm=false;s.manualRpmTarget=null;s.shiftCooldown=0;
       $("startBtn").classList.add("running");txt("startLabel","MOTOR STOPPEN");txt("stateLabel","MOTOR LÄUFT");$("liveDot").classList.add("on");
-      shift();audio();cancelAnimationFrame(s.raf);s.raf=requestAnimationFrame(tick);if($("modToggle").checked)modulate();
-      txt("rpmOut",`${Math.round(s.rpm)} U/min`);
-      $("rpmSlider").value=Math.round(s.rpm);
-      ui();
-    }catch(e){console.error(e);txt("stateLabel","AUDIOFEHLER");alert("Audio konnte nicht geladen werden. Bitte Live Server oder HTTPS verwenden und erneut starten.");}
+      shift();audio();cancelAnimationFrame(s.raf);s.raf=requestAnimationFrame(tick);
+      if($("modToggle").checked)modulate();
+      txt("rpmOut",`${Math.round(s.rpm)} U/min`);$("rpmSlider").value=Math.round(s.rpm);ui();
+    }catch(e){
+      console.error("Start/Audio:",e);
+      txt("stateLabel","TON NICHT VERFÜGBAR");txt("startLabel","ERNEUT TON STARTEN");
+      alert("Der Ton konnte nicht gestartet werden. Bitte erneut auf den Startknopf tippen. Falls das iPhone gerade aus dem Standby kommt, kurz warten und nochmals tippen. Details stehen in der Browser-Konsole.");
+    }
   }
   function stop(){
-    s.running=false;
-    stopCityDrive();
+    s.running=false;stopCityDrive();
     s.gasHeld=false;s.brakeHeld=false;cancelAnimationFrame(s.raf);clearInterval(s.modTimer);
-    // Motor komplett abstellen: 0 RPM, kein Ton
-    if(s.ctx&&s.master)s.master.gain.setTargetAtTime(0,s.ctx.currentTime,.08);
-    // Alle Audioquellen stoppen
-    try{if(s.revSource){s.revSource.stop();s.revSource.disconnect();s.revSource=null}}catch(_){}
-    try{if(s.idleSource){s.idleSource.stop();s.idleSource.disconnect();s.idleSource=null}}catch(_){}
-    try{if(s.driveSource){s.driveSource.stop();s.driveSource.disconnect();s.driveSource=null}}catch(_){}
-    
+    if(s.ctx&&s.master){
+      const now=s.ctx.currentTime;s.master.gain.cancelScheduledValues(now);
+      s.master.gain.setTargetAtTime(0,now,.045);
+    }
+    [ "revSource","idleSource","driveSource","t5IdleSource","t5CruiseSource","t5LoadSource" ].forEach(key=>{
+      const src=s[key];if(src){try{src.onended=null;src.stop();src.disconnect()}catch(_){}s[key]=null}
+    });
     $("startBtn").classList.remove("running");$("gasBtn").classList.remove("active");$("brakeBtn").classList.remove("active");
     txt("startLabel","MOTOR STARTEN");txt("stateLabel","BEREIT");$("liveDot").classList.remove("on");
     s.useManualRpm=false;s.manualRpmTarget=null;s.shiftCooldown=0;
-    // Motor ist AUS: 0 RPM
-    s.rpm=0;s.load=0;s.speed=0;s.gear=0;
-    $("rpmSlider").value=0;
-    txt("rpmOut","0 U/min");
-    ui();
-    setTimeout(()=>{if(!s.running&&s.master)s.master.gain.value=s.muted?0:.82},180);
+    s.rpm=0;s.load=0;s.speed=0;s.gear=0;$("rpmSlider").value=0;txt("rpmOut","0 U/min");ui();
   }
   function modulate(){clearInterval(s.modTimer);s.modTimer=setInterval(()=>{s.mod=.985+Math.random()*.03;if(s.running)audio()},1800+Math.random()*1600)}
   
@@ -443,7 +498,7 @@
   }
   
 
-  function hold(id,key){const b=$(id);b.addEventListener("pointerdown",e=>{e.preventDefault();s[key]=true;b.classList.add("active");s.useManualRpm=false;if(key==="gasHeld")playRevSweep();if(s.cityDriveActive)stopCityDrive();});
+  function hold(id,key){const b=$(id);b.addEventListener("pointerdown",e=>{e.preventDefault();if(s.running&&s.ctx&&s.ctx.state!=="running")recoverAudio().catch(console.warn);s[key]=true;b.classList.add("active");s.useManualRpm=false;if(key==="gasHeld")playRevSweep();if(s.cityDriveActive)stopCityDrive();});
     ["pointerup","pointercancel","pointerleave"].forEach(ev=>b.addEventListener(ev,e=>{e.preventDefault();s[key]=false;b.classList.remove("active");if(s.cityDriveActive)stopCityDrive();}))}
   function selectGearManually(gearNum) {
     if(!s.running || s.shiftCooldown>Date.now()) return;
@@ -497,7 +552,14 @@
     ui();
     if(s.running) audio();
   }
-  $("startBtn").addEventListener("click",()=>s.running?stop():start());hold("gasBtn","gasHeld");hold("brakeBtn","brakeHeld");
+  $("startBtn").addEventListener("click",()=>{
+    if(!s.running){start();return}
+    if(s.ctx&&s.ctx.state!=="running"){recoverAudio().then(()=>{
+      txt("stateLabel","MOTOR LÄUFT");txt("startLabel","MOTOR STOPPEN");$("liveDot").classList.add("on");
+    }).catch(e=>{console.warn(e);txt("stateLabel","TON AKTIVIEREN");txt("startLabel","TON AKTIVIEREN")});}
+    else stop();
+  });
+  hold("gasBtn","gasHeld");hold("brakeBtn","brakeHeld");
   // Gang-Buttons klickbar
   ["N","1","2","3","4","5"].forEach((g,i)=>{const btn=$("gear"+g);if(btn)btn.addEventListener("click",()=>{if(s.cityDriveActive)stopCityDrive();selectGearManually(i)})});
   
@@ -537,7 +599,11 @@
     if(s.running){ui();audio()}
   });
   $("modToggle").addEventListener("change",e=>{if(e.target.checked&&s.running)modulate();else{clearInterval(s.modTimer);s.mod=1;if(s.running)audio()}});
-  $("muteBtn").addEventListener("click",()=>{s.muted=!s.muted;txt("muteBtn",s.muted?"TON AUS":"TON AN");if(s.running)audio()});
+  $("muteBtn").addEventListener("click",()=>{
+    s.muted=!s.muted;txt("muteBtn",s.muted?"TON AUS":"TON AN");
+    if(s.ctx&&s.master){const now=s.ctx.currentTime;s.master.gain.cancelScheduledValues(now);s.master.gain.setTargetAtTime(s.muted?0:.82,now,.035)}
+    if(s.running)audio();
+  });
   async function replace(input,which){const f=input.files?.[0];if(!f)return;try{if(!s.ctx)await init();const buf=await s.ctx.decodeAudioData(await f.arrayBuffer());
     const filter=which==="idle"?s.idleFilter:s.driveFilter,gain=which==="idle"?s.idleGain:s.driveGain,old=which==="idle"?s.idleSource:s.driveSource;
     const src=s.ctx.createBufferSource();src.buffer=buf;src.loop=true;src.connect(filter);src.start();
@@ -552,5 +618,31 @@
   // Initialisiere RPM-Schieberegler Anzeige - Motor ist AUS
   txt("rpmOut","0 U/min");
   $("rpmSlider").value=0;
-  document.addEventListener("visibilitychange",()=>{if(document.hidden){s.gasHeld=false;s.brakeHeld=false}});
+  function updateAudioStatus(){
+    if(!s.running)return;
+    if(s.ctx&&s.ctx.state==="running"){
+      txt("stateLabel","MOTOR LÄUFT");txt("startLabel","MOTOR STOPPEN");$("liveDot").classList.add("on");
+    }else{
+      txt("stateLabel","TON PAUSIERT");txt("startLabel","TON AKTIVIEREN");$("liveDot").classList.remove("on");
+    }
+  }
+  function onForeground(){
+    if(!document.hidden&&s.running&&s.ctx){
+      // iOS pausiert AudioContext-Instanzen beim Wechsel in den Hintergrund.
+      // Ein Resume-Versuch ist hilfreich; falls iOS eine Geste verlangt,
+      // aktiviert ein Tippen auf Start/Gas/Bremse die Session erneut.
+      s.ctx.resume().then(()=>{
+        if(s.ctx&&s.ctx.state==="running"){
+          const now=s.ctx.currentTime;s.master.gain.cancelScheduledValues(now);
+          s.master.gain.setTargetAtTime(s.muted?0:.82,now,.04);
+          connectLoopSources();audio();updateAudioStatus();
+        }
+      }).catch(()=>updateAudioStatus());
+    }
+  }
+  document.addEventListener("visibilitychange",()=>{
+    if(document.hidden){s.gasHeld=false;s.brakeHeld=false;$("gasBtn").classList.remove("active");$("brakeBtn").classList.remove("active")}
+    else onForeground();
+  });
+  window.addEventListener("pageshow",onForeground);
 })();
