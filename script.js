@@ -4,6 +4,9 @@
 (() => {
   "use strict";
   const $=id=>document.getElementById(id);
+  // iOS Erkennung - wichtig für Audio Autoplay Policies
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.platform) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  
   const s={ctx:null,initPromise:null,master:null,idleGain:null,driveGain:null,idleFilter:null,driveFilter:null,
     t5IdleGain:null,t5CruiseGain:null,t5LoadGain:null,t5IdleFilter:null,t5DriveFilter:null,
     idleSource:null,driveSource:null,t5IdleSource:null,t5CruiseSource:null,t5LoadSource:null,
@@ -45,34 +48,75 @@
     $("rpmSlider").value=Math.round(s.rpm);
   }
   async function getBuffer(url,ctx=s.ctx){
-    const r=await fetch(url,{cache:"no-cache"});
-    if(!r.ok)throw Error(`Audio fehlt: ${url}`);
-    return ctx.decodeAudioData(await r.arrayBuffer());
+    try {
+      const r = await fetch(url, {cache: "no-cache"});
+      if(!r.ok) throw Error(`Audio fehlt: ${url} (HTTP ${r.status})`);
+      const arrayBuffer = await r.arrayBuffer();
+      if(arrayBuffer.byteLength === 0) throw Error(`Audio-Datei ist leer: ${url}`);
+      return ctx.decodeAudioData(arrayBuffer);
+    } catch(e) {
+      // Auf iOS: manchmal scheitert fetch ohne CORS - falls Datei lokal ist, direkt versuchen
+      if(e.name === "TypeError" && isIOS) {
+        console.warn(`fetch failed for ${url}, retrying...`, e);
+        try {
+          const response = await fetch(url);
+          if(response.ok) {
+            return ctx.decodeAudioData(await response.arrayBuffer());
+          }
+        } catch(e2) {
+          console.error(`Final fetch failed for ${url}:`, e2);
+        }
+      }
+      throw Error(`Audio konnte nicht geladen werden: ${url} - ${e.message}`);
+    }
   }
-  function makeLoop(buffer,filter){
+function makeLoop(buffer,filter){
     if(!buffer||!s.ctx||s.ctx.state==="closed")return null;
-    const src=s.ctx.createBufferSource();src.buffer=buffer;src.loop=true;src.connect(filter);src.start();return src;
+    const src=s.ctx.createBufferSource();
+    src.buffer=buffer;src.loop=true;src.connect(filter);src.start();
+    return src;
   }
   function connectLoopSources(){
     if(!s.ctx||s.ctx.state!=="running")return;
-    if(!s.idleSource)s.idleSource=makeLoop(s.idleBuffer,s.idleFilter);
-    if(!s.driveSource)s.driveSource=makeLoop(s.driveBuffer,s.driveFilter);
-    if(!s.t5IdleSource)s.t5IdleSource=makeLoop(s.t5IdleBuffer,s.t5IdleFilter);
-    if(!s.t5CruiseSource)s.t5CruiseSource=makeLoop(s.t5CruiseBuffer,s.t5DriveFilter);
-    if(!s.t5LoadSource)s.t5LoadSource=makeLoop(s.t5LoadBuffer,s.t5DriveFilter);
+    const now = s.ctx.currentTime;
+    
+    function startSource(sourceKey, buffer, filter) {
+      // alte Quelle stoppen
+      if(s[sourceKey]) {
+        try { s[sourceKey].stop(); s[sourceKey].disconnect(); } catch(_) {}
+      }
+      
+      if(buffer) {
+        const src = s.ctx.createBufferSource();
+        src.buffer = buffer;
+        src.loop = true;
+        src.connect(filter);
+        src.start(now);
+        s[sourceKey] = src;
+      }
+    }
+    
+    startSource("idleSource", s.idleBuffer, s.idleFilter);
+    startSource("driveSource", s.driveBuffer, s.driveFilter);
+    startSource("t5IdleSource", s.t5IdleBuffer, s.t5IdleFilter);
+    startSource("t5CruiseSource", s.t5CruiseBuffer, s.t5DriveFilter);
+    startSource("t5LoadSource", s.t5LoadBuffer, s.t5DriveFilter);
   }
   async function init(){
-    if(s.ctx&&s.ctx.state!=="closed"&&s.idleBuffer&&s.driveBuffer&&s.t5IdleBuffer&&s.t5CruiseBuffer&&s.t5LoadBuffer)return;
+    // Wenn Buffer schon geladen sind, nichts tun
+    if(s.idleBuffer&&s.driveBuffer&&s.t5IdleBuffer&&s.t5CruiseBuffer&&s.t5LoadBuffer&&s.revBuffer)return;
     if(s.initPromise)return s.initPromise;
+    
     s.initPromise=(async()=>{
+      // AudioContext erstellen (aber nicht resume - das passiert in start())
       const C=window.AudioContext||window.webkitAudioContext;
       if(!C)throw Error("Web Audio API nicht verfügbar");
       const ctx=new C();s.ctx=ctx;
+      
+      // Alle Quellen auf null setzen
       s.idleSource=s.driveSource=s.t5IdleSource=s.t5CruiseSource=s.t5LoadSource=s.revSource=null;
-      ctx.addEventListener("statechange",updateAudioStatus);
-      // resume() unmittelbar innerhalb der Nutzeraktion anstoßen; iOS kann
-      // die Audio-Freigabe nach asynchronem Datei-Laden sonst verlieren.
-      const resumeAttempt=ctx.resume().catch(err=>{console.warn("AudioContext resume:",err)});
+      
+      // Knoten erstellen und verkabeln
       s.master=ctx.createGain();s.master.gain.value=s.muted?0:.82;
       s.idleFilter=ctx.createBiquadFilter();s.driveFilter=ctx.createBiquadFilter();
       [s.idleFilter,s.driveFilter].forEach(f=>{f.type="lowpass";f.frequency.value=9000;f.Q.value=.55});
@@ -83,12 +127,14 @@
       [s.idleGain,s.driveGain,s.t5IdleGain,s.t5CruiseGain,s.t5LoadGain].forEach(g=>g.gain.value=0);
       s.revFilter=ctx.createBiquadFilter();s.revFilter.type="bandpass";s.revFilter.frequency.value=1900;s.revFilter.Q.value=.65;
       s.revGain=ctx.createGain();s.revGain.gain.value=0;
-      // Einmalige Verkabelung: makeLoop() darf keine zusätzlichen Gain-Pfade
-      // pro Motorstart anlegen.
+      
+      // Verkabelung
       s.idleFilter.connect(s.idleGain);s.driveFilter.connect(s.driveGain);
       s.t5IdleFilter.connect(s.t5IdleGain);s.t5DriveFilter.connect(s.t5CruiseGain);s.t5DriveFilter.connect(s.t5LoadGain);
       [s.idleGain,s.driveGain,s.t5IdleGain,s.t5CruiseGain,s.t5LoadGain,s.revGain].forEach(g=>g.connect(s.master));
       s.revFilter.connect(s.revGain);s.master.connect(ctx.destination);
+      
+      // Buffer laden
       const [idle,drive,rev,t5Idle,t5Cruise,t5Load]=await Promise.all([
         getBuffer("audio/leerlauf-loop.mp3",ctx),getBuffer("audio/fahr-loop.mp3",ctx),
         getBuffer("audio/drehzahl-anhebung.mp3",ctx),getBuffer("audio/leerlauf-t5-loop.mp3",ctx),
@@ -96,8 +142,10 @@
       ]);
       s.idleBuffer=idle;s.driveBuffer=drive;s.revBuffer=rev;
       s.t5IdleBuffer=t5Idle;s.t5CruiseBuffer=t5Cruise;s.t5LoadBuffer=t5Load;
-      await resumeAttempt;
-      if(ctx.state==="suspended")await ctx.resume();
+      
+      // State Listener
+      ctx.addEventListener("statechange",updateAudioStatus);
+      
       if(ctx.state==="closed")throw Error("AudioContext wurde geschlossen");
     })();
     try{await s.initPromise}
@@ -110,12 +158,26 @@
   }
   async function recoverAudio(){
     await init();
-    if(s.ctx.state==="suspended")await s.ctx.resume();
-    if(s.ctx.state!=="running")throw Error(`AudioContext ist ${s.ctx.state}`);
-    const now=s.ctx.currentTime;
+    
+    if(s.ctx.state === "suspended") {
+      await s.ctx.resume();
+      // iOS: manchmal braucht es Verzögerung
+      if(isIOS && s.ctx.state === "suspended") {
+        await new Promise(resolve => setTimeout(resolve, 50));
+        await s.ctx.resume();
+      }
+    }
+    
+    if(s.ctx.state !== "running") {
+      throw Error(`AudioContext ist ${s.ctx.state}`);
+    }
+    
+    const now = s.ctx.currentTime;
     s.master.gain.cancelScheduledValues(now);
-    s.master.gain.setTargetAtTime(s.muted?0:.82,now,.035);
-    if(s.running){connectLoopSources();audio()}
+    s.master.gain.setTargetAtTime(s.muted ? 0 : .82, now, .035);
+    
+    connectLoopSources();
+    if(s.running) audio();
     return true;
   }
   function selectGear(){
@@ -310,26 +372,66 @@
   async function start(){
     try{
       if(s.running){await recoverAudio();return}
+      
+      // 1. Buffer und AudioContext laden (init erstellt Context und lädt Buffer)
       await init();
-      if(s.ctx.state!=="running")await s.ctx.resume();
-      if(s.ctx.state!=="running")throw Error("AudioContext konnte nicht gestartet werden");
-      const now=s.ctx.currentTime;
+      
+      // 2. AudioContext entsperren (MUSS in User Gesture passieren!)
+      // Auf iOS: Context ist nach init() im Zustand "suspended" und muss in User Gesture resumed werden
+      if(s.ctx.state === "suspended") {
+        await s.ctx.resume();
+        // iOS: manchmal braucht es einen zweiten Versuch
+        if(isIOS && s.ctx.state === "suspended") {
+          await new Promise(resolve => setTimeout(resolve, 50));
+          await s.ctx.resume();
+        }
+      }
+      
+      if(s.ctx.state !== "running") {
+        throw Error("AudioContext konnte nicht gestartet werden - iOS erfordert Nutzerinteraktion");
+      }
+      
+      // 3. Master Gain einstellen
+      const now = s.ctx.currentTime;
       s.master.gain.cancelScheduledValues(now);
-      s.master.gain.setTargetAtTime(s.muted?0:.82,now,.025);
+      s.master.gain.setTargetAtTime(s.muted ? 0 : .82, now, .025);
+      
+      // 4. ALLE Quellen starten (MUSS in User Gesture passieren!)
+      // Dies ist der entscheidende Punkt: src.start() muss hier aufgerufen werden
       connectLoopSources();
-      if(!s.idleSource||!s.driveSource||!s.t5IdleSource||!s.t5CruiseSource||!s.t5LoadSource)
+      
+      if(!s.idleSource || !s.driveSource || !s.t5IdleSource || !s.t5CruiseSource || !s.t5LoadSource) {
         throw Error("Audioquellen konnten nicht gestartet werden");
-      s.running=true;s.lastTime=performance.now();
-      s.rpm=IDLE;s.load=0;s.speed=0;s.gear=0;
-      s.useManualRpm=false;s.manualRpmTarget=null;s.shiftCooldown=0;
-      $("startBtn").classList.add("running");txt("startLabel","MOTOR STOPPEN");txt("stateLabel","MOTOR LÄUFT");$("liveDot").classList.add("on");
-      shift();audio();cancelAnimationFrame(s.raf);s.raf=requestAnimationFrame(tick);
-      if($("modToggle").checked)modulate();
-      txt("rpmOut",`${Math.round(s.rpm)} U/min`);$("rpmSlider").value=Math.round(s.rpm);ui();
+      }
+      
+      // 5. Motor-Status setzen
+      s.running = true;
+      s.lastTime = performance.now();
+      s.rpm = IDLE; s.load = 0; s.speed = 0; s.gear = 0;
+      s.useManualRpm = false; s.manualRpmTarget = null; s.shiftCooldown = 0;
+      
+      $("startBtn").classList.add("running");
+      txt("startLabel", "MOTOR STOPPEN");
+      txt("stateLabel", "MOTOR LÄUFT");
+      $("liveDot").classList.add("on");
+      
+      shift(); audio();
+      cancelAnimationFrame(s.raf);
+      s.raf = requestAnimationFrame(tick);
+      if($("modToggle").checked) modulate();
+      txt("rpmOut", `${Math.round(s.rpm)} U/min`);
+      $("rpmSlider").value = Math.round(s.rpm);
+      ui();
     }catch(e){
-      console.error("Start/Audio:",e);
-      txt("stateLabel","TON NICHT VERFÜGBAR");txt("startLabel","ERNEUT TON STARTEN");
-      alert("Der Ton konnte nicht gestartet werden. Bitte erneut auf den Startknopf tippen. Falls das iPhone gerade aus dem Standby kommt, kurz warten und nochmals tippen. Details stehen in der Browser-Konsole.");
+      console.error("Start/Audio:", e);
+      txt("stateLabel", "TON NICHT VERFÜGBAR");
+      txt("startLabel", "ERNEUT TON STARTEN");
+      
+      if(isIOS) {
+        alert("iOS erfordert eine Nutzerinteraktion für Audio. Bitte tippen Sie erneut auf 'MOTOR STARTEN'.");
+      } else {
+        alert("Ton konnte nicht gestartet werden: " + e.message);
+      }
     }
   }
   function stop(){
@@ -498,7 +600,14 @@
   }
   
 
-  function hold(id,key){const b=$(id);b.addEventListener("pointerdown",e=>{e.preventDefault();if(s.running&&s.ctx&&s.ctx.state!=="running")recoverAudio().catch(console.warn);s[key]=true;b.classList.add("active");s.useManualRpm=false;if(key==="gasHeld")playRevSweep();if(s.cityDriveActive)stopCityDrive();});
+  function hold(id,key){const b=$(id);b.addEventListener("pointerdown",async e=>{e.preventDefault();
+    if(s.running&&s.ctx&&s.ctx.state!=="running") {
+      await recoverAudio().catch(console.warn);
+    }
+    s[key]=true;b.classList.add("active");s.useManualRpm=false;
+    if(key==="gasHeld")playRevSweep();
+    if(s.cityDriveActive)stopCityDrive();
+  });
     ["pointerup","pointercancel","pointerleave"].forEach(ev=>b.addEventListener(ev,e=>{e.preventDefault();s[key]=false;b.classList.remove("active");if(s.cityDriveActive)stopCityDrive();}))}
   function selectGearManually(gearNum) {
     if(!s.running || s.shiftCooldown>Date.now()) return;
@@ -552,13 +661,44 @@
     ui();
     if(s.running) audio();
   }
-  $("startBtn").addEventListener("click",()=>{
-    if(!s.running){start();return}
-    if(s.ctx&&s.ctx.state!=="running"){recoverAudio().then(()=>{
-      txt("stateLabel","MOTOR LÄUFT");txt("startLabel","MOTOR STOPPEN");$("liveDot").classList.add("on");
-    }).catch(e=>{console.warn(e);txt("stateLabel","TON AKTIVIEREN");txt("startLabel","TON AKTIVIEREN")});}
-    else stop();
+  // Start Button Event Listener - wichtig für iOS User Gesture
+  $("startBtn").addEventListener("click", async () => {
+    if(!s.running) {
+      await start();
+      return;
+    }
+    if(s.ctx && s.ctx.state !== "running") {
+      try {
+        await recoverAudio();
+        txt("stateLabel", "MOTOR LÄUFT");
+        txt("startLabel", "MOTOR STOPPEN");
+        $("liveDot").classList.add("on");
+      } catch(e) {
+        console.warn(e);
+        txt("stateLabel", "TON AKTIVIEREN");
+        txt("startLabel", "TON AKTIVIEREN");
+      }
+    } else {
+      stop();
+    }
   });
+  
+  // Für Touch-Geräte: auch touchstart Event hinzufügen
+  $("startBtn").addEventListener("touchstart", async (e) => {
+    e.preventDefault();
+    if(!s.running) {
+      await start();
+    } else if(s.ctx && s.ctx.state !== "running") {
+      try {
+        await recoverAudio();
+        txt("stateLabel", "MOTOR LÄUFT");
+        txt("startLabel", "MOTOR STOPPEN");
+        $("liveDot").classList.add("on");
+      } catch(e) {
+        console.warn(e);
+      }
+    }
+  }, {passive: false});
   hold("gasBtn","gasHeld");hold("brakeBtn","brakeHeld");
   // Gang-Buttons klickbar
   ["N","1","2","3","4","5"].forEach((g,i)=>{const btn=$("gear"+g);if(btn)btn.addEventListener("click",()=>{if(s.cityDriveActive)stopCityDrive();selectGearManually(i)})});
@@ -618,6 +758,13 @@
   // Initialisiere RPM-Schieberegler Anzeige - Motor ist AUS
   txt("rpmOut","0 U/min");
   $("rpmSlider").value=0;
+  
+  // iOS spezifischer Hinweis beim Laden
+  if(isIOS) {
+    console.log("iOS erkannt - Audio muss durch Nutzerinteraktion entsperrt werden");
+    // Optional: Hinweis in der UI anzeigen
+    // txt("stateLabel", "TIPPEN ZUM AKTIVIEREN");
+  }
   function updateAudioStatus(){
     if(!s.running)return;
     if(s.ctx&&s.ctx.state==="running"){
@@ -638,6 +785,15 @@
           connectLoopSources();audio();updateAudioStatus();
         }
       }).catch(()=>updateAudioStatus());
+      
+      // iOS spezifisch: manchmal müssen Quellen neu gestartet werden nach foreground
+      if(isIOS && s.running) {
+        setTimeout(() => {
+          if(s.ctx && s.ctx.state === "running") {
+            connectLoopSources();
+          }
+        }, 200);
+      }
     }
   }
   document.addEventListener("visibilitychange",()=>{
