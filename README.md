@@ -2,7 +2,9 @@
 
 Eine interaktive Web-App zur realistischen Simulation des Motorverhaltens eines **VW Golf 4 1.9 TDI**. Die Anwendung simuliert Drehzahl, Geschwindigkeit, Gangwechsel und Motorcharakteristik mit physikalisch korrekten Übersetzungsverhältnissen und authentischem Dieselmotor-Verhalten.
 
-![Golf 4 TDI Simulator Screenshot](https://via.placeholder.com/600x400/05080d/7a8fc8?text=Golf+4+TDI+Simulator)
+Seite über folgenden Link öffnen:
+
+https://spezifiction.github.io/Golf4TDI_Simulator/
 
 ## ✨ Features
 
