@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0b1015">
+  <meta name="theme-color" content="#070914">
   <meta name="description" content="Interaktive Golf 4 TDI Motorensimulation mit Drehzahl, Last und Gangwechseln.">
   <title>Golf 4 TDI · Motor-Simulator</title>
   <!--
@@ -27,7 +27,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Golf 4 TDI Simulator">
   <meta name="application-name" content="Golf 4 TDI Simulator">
-  <meta name="msapplication-TileColor" content="#0b1015">
+  <meta name="msapplication-TileColor" content="#070914">
   <meta name="msapplication-TileImage" content="icons/web-app-manifest-192x192.png">
   <link rel="stylesheet" href="style.css">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -37,8 +37,8 @@
 <body>
 <main class="app">
   <header class="header">
-    <div class="logo">TDI</div>
-    <div><p class="eyebrow">INTERACTIVE ENGINE LAB</p><h1>Golf 4 <span>1.9 TDI</span></h1></div>
+    <div class="logo" aria-label="TDI"><span>T</span><span class="logo-di">DI</span></div>
+    <div><p class="eyebrow">INTERACTIVE ENGINE LAB</p><h1>Golf 4 / T5 <span>1.9 T<span class="title-di">DI</span></span></h1></div>
     <div class="live"><i id="liveDot"></i><span id="stateLabel">BEREIT</span></div>
   </header>
 
@@ -48,14 +48,18 @@
       <div><span class="caption">MOTORDREHZAHL</span><div class="rpm-number"><strong id="rpmValue">0</strong><small>U/min</small></div></div>
     </div>
     <div class="tach">
-      <div class="tach-top"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><i class="shift-mark" style="left:28.57%"></i><i class="shift-mark" style="left:47.62%"></i></div>
-      <div class="tach-track"><div id="tachFill"></div><i></i></div>
+      <div class="tach-top"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span></div>
+      <div class="tach-track" id="tachTrack">
+        <div id="tachFill"></div>
+        <input id="shiftDownMarker" class="shift-marker shift-marker-down" type="range" min="1000" max="3000" step="50" value="1200" aria-label="Runterschalten bei Drehzahl">
+        <input id="shiftUpMarker" class="shift-marker shift-marker-up" type="range" min="1000" max="3000" step="50" value="2000" aria-label="Hochschalten bei Drehzahl">
+      </div>
       <div class="tach-bottom"><span>× 1.000 U/min</span><span id="gearLabel">LEERLAUF</span></div>
     </div>
     <div class="gear-strip">
       <span class="caption">GETRIEBE</span>
       <div class="gear-values"><b id="gearN" class="selected">N</b><b id="gear1">1</b><b id="gear2">2</b><b id="gear3">3</b><b id="gear4">4</b><b id="gear5">5</b></div>
-      <span class="shift-hint" id="shiftHint">Automatik · ↑2000 / ↓1200 U/min oder klicke Gang</span>
+      <span class="shift-hint" id="shiftHint">Automatik · ↑2000 / ↓1200 U/min</span>
     </div>
   </section>
 
@@ -71,7 +75,7 @@
       <label class="slider-row" for="loadSlider"><span><b>Gaspedalstellung</b><output id="loadOut">0 %</output></span><input id="loadSlider" type="range" min="0" max="100" value="0"></label>
       <label class="slider-row" for="rpmSlider"><span><b>Drehzahl (manuell)</b><output id="rpmOut">0 U/min</output></span><input id="rpmSlider" type="range" min="0" max="4200" value="0"></label>
     </div>
-    <div class="bottom-row">
+<div class="bottom-row">
       <label class="toggle"><input id="modToggle" type="checkbox" checked><span class="switch"></span><span>Sanfte Modulation</span></label>
       <label class="toggle"><input id="cityToggle" type="checkbox"><span class="switch"></span><span>Stadtfahrt (Endlosloop · 30s)</span></label>
       <button id="muteBtn" class="mute" type="button">TON AN</button>
@@ -79,12 +83,9 @@
   </section>
 
   <details class="source-panel">
-    <summary>Audio-Quellen & Hinweise</summary>
-    <p>Die Soundengine kombiniert die ursprünglichen Golf-4-TDI-Samples mit den T5-Aufnahmen: T5-Leerlauf, gleichmäßige Fahrt und höhere Last werden abhängig von Drehzahl, Geschwindigkeit und Gaspedal beigemischt. Beim Gasgeben kommt zusätzlich ein dynamischer Drehzahl-Anstieg hinzu.</p>
-    <label>Leerlauf-Sample <input id="idleFile" type="file" accept="audio/*"></label>
-    <label>Fahr-Sample <input id="driveFile" type="file" accept="audio/*"></label>
-    <p><small>Das zusätzliche Drehzahl-Sweep-Sample und die T5-Soundlayer sind fest integriert. Bei iOS: Ein Tippen auf „MOTOR STARTEN“ sollte den Motor mit Leerlauf-Ton starten.</small></p>
-    <small>Audiodateien werden nicht an einen Server übertragen.</small>
+    <summary>Soundmodell & Hinweise</summary>
+    <p>Die fest integrierte Soundengine kombiniert Golf-4-TDI- und T5-Aufnahmen. Leerlauf, gleichmäßige Fahrt, höhere Last und Drehzahlanhebung werden abhängig von Drehzahl, Geschwindigkeit und Gaspedalstellung gemischt.</p>
+    <p><small>Auf iPhone und iPad muss die Audiowiedergabe durch Antippen von „MOTOR STARTEN“ freigegeben werden. Falls der Ton trotz erneutem Antippen ausbleibt, die Web-App vollständig schließen und die Seite neu laden.</small></p>
   </details>
   <footer>Demo-Audioengine · Web Audio API · Einstellungen vor Fahrtbeginn vornehmen. | Für private Nutzung. Mit KI-Unterstützung erstellt.</footer>
 </main>

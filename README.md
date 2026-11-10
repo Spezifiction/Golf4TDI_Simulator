@@ -195,3 +195,15 @@ Dieses Projekt ist für den **persönlichen Gebrauch** bestimmt. Die Audio-Sampl
 ---
 
 **Erstellt mit Web Audio API und Vanilla JavaScript**
+
+
+## Aktualisierte Bedienung (v5)
+
+- Das Soundmodell ist fest integriert; eigene Audiosamples können nicht mehr hochgeladen werden.
+- Die automatischen Schaltpunkte sind über zwei Regler einstellbar (Standard: Runterschalten 1.200 U/min, Hochschalten 2.000 U/min). Die Logik hält mindestens 100 U/min Abstand zwischen den Schaltpunkten.
+- Die Oberfläche verwendet eine blau-violette Tachobeleuchtung mit roten Akzenten.
+- Für iOS wird `AudioContext.resume()` unmittelbar beim Antippen des Start-Buttons angestoßen. Ein zusätzlicher Touch-Start-Handler wurde entfernt, damit Startaktionen nicht doppelt ausgelöst werden.
+- Bei einem iOS-Audiostartfehler erscheint höchstens ein Hinweis pro Seitenaufruf. Er weist auch auf das vollständige Schließen und Neuladen der Web-App hin.
+- Der Service-Worker-Cache wurde auf v5 angehoben. Nach dem GitHub-Pages-Update die Web-App einmal vollständig schließen und neu öffnen.
+
+Hinweis: Die Audio-Routine wurde code-seitig robuster gestaltet und die JavaScript-Syntax geprüft. Ein physischer Test auf einem iPhone mit iOS 27.2 war in dieser Bearbeitung nicht möglich.

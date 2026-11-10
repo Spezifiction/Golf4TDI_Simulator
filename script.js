@@ -16,7 +16,8 @@
     cityDriveActive:false,cityDriveStartTime:0,cityDriveLoopInterval:null,lastCityAction:0,cityDriveCycle:0,cityDriveGasPlayed:false,cityDriveLoadTarget:0,cityDriveSpeedTarget:0,cityDriveBrakeActive:false};
   // Realistische Übersetzungsverhältnisse Motor zu Rad für Golf 4 TDI 1.9
   // v (km/h) = (RPM * 0.13) / ratio (angepasst an reale Tabellenwerte)
-  const ratios=[0,12.804,6.991,4.568,3.277,2.521], IDLE=850, SHIFT_UP=2000, SHIFT_DOWN=1200, MAX_RPM=4200;
+  const ratios=[0,12.804,6.991,4.568,3.277,2.521], IDLE=850, MAX_RPM=4200;
+  let SHIFT_UP=2000, SHIFT_DOWN=1200, startInProgress=false, iosAudioNoticeShown=false;
   
   // Stadtfahrt mit expliziten Geschwindigkeitszielen und Ampelstopp.
   const cityDriveSequence = [
@@ -111,7 +112,7 @@ function makeLoop(buffer,filter){
       // AudioContext erstellen (aber nicht resume - das passiert in start())
       const C=window.AudioContext||window.webkitAudioContext;
       if(!C)throw Error("Web Audio API nicht verfügbar");
-      const ctx=new C();s.ctx=ctx;
+      const ctx=s.ctx || new C();s.ctx=ctx;
       
       // Alle Quellen auf null setzen
       s.idleSource=s.driveSource=s.t5IdleSource=s.t5CruiseSource=s.t5LoadSource=s.revSource=null;
@@ -157,17 +158,17 @@ function makeLoop(buffer,filter){
     } finally {s.initPromise=null}
   }
   async function recoverAudio(){
-    await init();
-    
-    if(s.ctx.state === "suspended") {
-      await s.ctx.resume();
-      // iOS: manchmal braucht es Verzögerung
-      if(isIOS && s.ctx.state === "suspended") {
-        await new Promise(resolve => setTimeout(resolve, 50));
-        await s.ctx.resume();
-      }
+    // resume() direkt im Tap-Handler anstoßen, bevor init() asynchron wartet.
+    let resumePromise;
+    if(s.ctx && s.ctx.state!=="closed") {
+      try{resumePromise=s.ctx.resume()}catch(err){resumePromise=Promise.reject(err)}
     }
-    
+    await init();
+    if(resumePromise)await resumePromise;
+    if(s.ctx.state === "suspended" || s.ctx.state === "interrupted") {
+      await s.ctx.resume();
+    }
+
     if(s.ctx.state !== "running") {
       throw Error(`AudioContext ist ${s.ctx.state}`);
     }
@@ -370,23 +371,21 @@ function makeLoop(buffer,filter){
     ui();audio();s.raf=requestAnimationFrame(tick);
   }
   async function start(){
+    if(startInProgress)return;
+    startInProgress=true;
     try{
       if(s.running){await recoverAudio();return}
-      
-      // 1. Buffer und AudioContext laden (init erstellt Context und lädt Buffer)
-      await init();
-      
-      // 2. AudioContext entsperren (MUSS in User Gesture passieren!)
-      // Auf iOS: Context ist nach init() im Zustand "suspended" und muss in User Gesture resumed werden
-      if(s.ctx.state === "suspended") {
-        await s.ctx.resume();
-        // iOS: manchmal braucht es einen zweiten Versuch
-        if(isIOS && s.ctx.state === "suspended") {
-          await new Promise(resolve => setTimeout(resolve, 50));
-          await s.ctx.resume();
-        }
-      }
-      
+
+      // Safari/iOS: Context im direkten Tap-Handler erzeugen und resume()
+      // synchron anstoßen, bevor ein await die User Activation verlieren kann.
+      const C=window.AudioContext||window.webkitAudioContext;
+      if(!C)throw Error("Web Audio API nicht verfügbar");
+      if(!s.ctx || s.ctx.state==="closed")s.ctx=new C();
+      let unlockPromise;
+      try{unlockPromise=s.ctx.resume()}catch(err){unlockPromise=Promise.reject(err)}
+      await Promise.all([init(),unlockPromise]);
+      if(s.ctx.state==="suspended" || s.ctx.state==="interrupted")await s.ctx.resume();
+
       if(s.ctx.state !== "running") {
         throw Error("AudioContext konnte nicht gestartet werden - iOS erfordert Nutzerinteraktion");
       }
@@ -427,11 +426,14 @@ function makeLoop(buffer,filter){
       txt("stateLabel", "TON NICHT VERFÜGBAR");
       txt("startLabel", "ERNEUT TON STARTEN");
       
-      if(isIOS) {
-        alert("iOS erfordert eine Nutzerinteraktion für Audio. Bitte tippen Sie erneut auf 'MOTOR STARTEN'.");
-      } else {
-        alert("Ton konnte nicht gestartet werden: " + e.message);
+      if(isIOS && !iosAudioNoticeShown) {
+        iosAudioNoticeShown=true;
+        alert("iPhone-Audio konnte nicht aktiviert werden. Tippe erneut auf „TON AKTIVIEREN“. Falls es weiterhin stumm bleibt: Web-App vollständig schließen und die Seite in Safari neu laden.");
+      } else if(!isIOS) {
+        console.warn("Ton konnte nicht gestartet werden:",e.message);
       }
+    } finally {
+      startInProgress=false;
     }
   }
   function stop(){
@@ -683,22 +685,7 @@ function makeLoop(buffer,filter){
     }
   });
   
-  // Für Touch-Geräte: auch touchstart Event hinzufügen
-  $("startBtn").addEventListener("touchstart", async (e) => {
-    e.preventDefault();
-    if(!s.running) {
-      await start();
-    } else if(s.ctx && s.ctx.state !== "running") {
-      try {
-        await recoverAudio();
-        txt("stateLabel", "MOTOR LÄUFT");
-        txt("startLabel", "MOTOR STOPPEN");
-        $("liveDot").classList.add("on");
-      } catch(e) {
-        console.warn(e);
-      }
-    }
-  }, {passive: false});
+  // Ein click-Handler deckt Touch und Maus ab; kein doppeltes touchstart.
   hold("gasBtn","gasHeld");hold("brakeBtn","brakeHeld");
   // Gang-Buttons klickbar
   ["N","1","2","3","4","5"].forEach((g,i)=>{const btn=$("gear"+g);if(btn)btn.addEventListener("click",()=>{if(s.cityDriveActive)stopCityDrive();selectGearManually(i)})});
@@ -738,23 +725,36 @@ function makeLoop(buffer,filter){
     txt("rpmOut",`${Math.round(s.rpm)} U/min`);
     if(s.running){ui();audio()}
   });
+  function updateShiftOutputs(){
+    $("shiftDownMarker").value=SHIFT_DOWN;
+    $("shiftUpMarker").value=SHIFT_UP;
+    $("shiftDownMarker").style.zIndex = SHIFT_DOWN > SHIFT_UP ? "6" : "5";
+    $("shiftUpMarker").style.zIndex = "5";
+    txt("shiftHint",`Schaltpunkte · ↑ ${SHIFT_UP.toLocaleString("de-DE")} / ↓ ${SHIFT_DOWN.toLocaleString("de-DE")} U/min`);
+  }
+  $("shiftDownMarker").addEventListener("input",e=>{
+    SHIFT_DOWN=+e.target.value;
+    if(SHIFT_DOWN>=SHIFT_UP){
+      SHIFT_UP=Math.min(3000,SHIFT_DOWN+100);
+    }
+    updateShiftOutputs();
+  });
+  $("shiftUpMarker").addEventListener("input",e=>{
+    SHIFT_UP=+e.target.value;
+    if(SHIFT_UP<=SHIFT_DOWN){
+      SHIFT_DOWN=Math.max(1000,SHIFT_UP-100);
+    }
+    updateShiftOutputs();
+  });
   $("modToggle").addEventListener("change",e=>{if(e.target.checked&&s.running)modulate();else{clearInterval(s.modTimer);s.mod=1;if(s.running)audio()}});
   $("muteBtn").addEventListener("click",()=>{
     s.muted=!s.muted;txt("muteBtn",s.muted?"TON AUS":"TON AN");
     if(s.ctx&&s.master){const now=s.ctx.currentTime;s.master.gain.cancelScheduledValues(now);s.master.gain.setTargetAtTime(s.muted?0:.82,now,.035)}
     if(s.running)audio();
   });
-  async function replace(input,which){const f=input.files?.[0];if(!f)return;try{if(!s.ctx)await init();const buf=await s.ctx.decodeAudioData(await f.arrayBuffer());
-    const filter=which==="idle"?s.idleFilter:s.driveFilter,gain=which==="idle"?s.idleGain:s.driveGain,old=which==="idle"?s.idleSource:s.driveSource;
-    const src=s.ctx.createBufferSource();src.buffer=buf;src.loop=true;src.connect(filter);src.start();
-    try{if(old){old.stop();old.disconnect()}}catch(_){}
-    if(which==="idle"){s.idleSource=src;s.idleBuffer=buf}else{s.driveSource=src;s.driveBuffer=buf}
-    txt("stateLabel","SAMPLE GELADEN");
-    if(s.running)audio();
-  }catch(e){console.error(e);alert("Audiodatei konnte nicht gelesen werden.")}}
-  $("idleFile").addEventListener("change",e=>replace(e.target,"idle"));$("driveFile").addEventListener("change",e=>replace(e.target,"drive"));
   if("serviceWorker"in navigator&&(location.protocol==="https:"||location.hostname==="localhost"))addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(console.warn));
   ui();
+  updateShiftOutputs();
   // Initialisiere RPM-Schieberegler Anzeige - Motor ist AUS
   txt("rpmOut","0 U/min");
   $("rpmSlider").value=0;

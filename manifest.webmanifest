@@ -4,8 +4,8 @@
   "description": "Interaktive Golf 4 TDI Motorensimulation mit Drehzahl, Last und Gangwechseln",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#0b1015",
-  "theme_color": "#0b1015",
+  "background_color": "#070914",
+  "theme_color": "#070914",
   "icons": [
     {
       "src": "icons/favicon-96x96.png",

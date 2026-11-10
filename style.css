@@ -1,10 +1,10 @@
 :root{
   color-scheme: dark;
-  --bg: #05080d;
+  --bg: #070914;
   --line: rgba(122, 143, 200, 0.15);
-  --muted: #648c9c;
-  --text: #7a8fc8;
-  --mint: #7a8fc8;
+  --muted: #8792c9;
+  --text: #aab4ff;
+  --mint: #8294ff;
   --amber: #ff3300;
   --red: #ff0000;
 }
@@ -26,7 +26,7 @@ body {
   align-items: center;
   justify-content: center;
   padding: max(12px, env(safe-area-inset-top)) 14px max(12px, env(safe-area-inset-bottom));
-  background: radial-gradient(ellipse at 50% -10%, #0a141d 0%, #05080d 48%, #020408 100%);
+  background: radial-gradient(ellipse at 50% -10%, #10152b 0%, #070914 48%, #03040b 100%);
 }
 
 button,
@@ -44,20 +44,24 @@ input { font: inherit; }
 .logo {
   width: 46px;
   height: 46px;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 58px;
+  white-space: nowrap;
   border-radius: 14px;
-  background: linear-gradient(145deg, #001a33, #000a1a);
-  color: #7a8fc8;
+  background: linear-gradient(145deg, #151b45, #080d25);
+  color: #8294ff;
   font-weight: 950;
   font-size: 16px;
   letter-spacing: -1px;
 }
 
+.logo-di, .title-di { color: #ff3030 !important; }
 .eyebrow {
   font-size: 9px;
   letter-spacing: 0.2em;
-  color: #7a8fc8;
+  color: #8294ff;
   font-weight: 800;
   margin: 0 0 3px;
 }
@@ -70,7 +74,7 @@ h1 {
 }
 
 h1 span {
-  color: #a8bac1;
+  color: #b8c2ef;
   font-weight: 450;
 }
 
@@ -81,7 +85,7 @@ h1 span {
   gap: 7px;
   font-size: 9px;
   letter-spacing: 0.14em;
-  color: #7a8fc8;
+  color: #8294ff;
   font-weight: 800;
 }
 
@@ -89,11 +93,11 @@ h1 span {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #1a2530;
+  background: #252b4d;
 }
 
 .live i.on {
-  background: #7a8fc8;
+  background: #8294ff;
   box-shadow: 0 0 12px rgba(122, 143, 200, 0.6);
 }
 
@@ -101,7 +105,7 @@ h1 span {
 .controls {
   border: 1px solid var(--line);
   border-radius: 23px;
-  background: linear-gradient(155deg, #0a141d, #05080d 72%);
+  background: linear-gradient(155deg, #10152b, #070914 72%);
   box-shadow: 0 20px 55px #0005;
 }
 
@@ -116,7 +120,7 @@ h1 span {
 .caption {
   font-size: 9px;
   letter-spacing: 0.14em;
-  color: #7a8fc8;
+  color: #8294ff;
   font-weight: 750;
 }
 
@@ -141,13 +145,13 @@ h1 span {
   font-size: clamp(33px, 9vw, 47px);
   font-weight: 620;
   letter-spacing: -0.06em;
-  color: #7a8fc8;
+  color: #8294ff;
 }
 
 .speed-number small,
 .rpm-number small {
   font-size: 10px;
-  color: #7a8fc8;
+  color: #8294ff;
 }
 
 .tach { margin-top: 17px; }
@@ -155,28 +159,19 @@ h1 span {
 .tach-top {
   display: flex;
   justify-content: space-between;
-  color: #7a8fc8;
+  color: #8294ff;
   font-size: 9px;
   padding: 0 1px 6px;
   position: relative;
   height: 14px;
 }
 
-.tach-top .shift-mark {
-  position: absolute;
-  bottom: -8px;
-  height: 10px;
-  width: 3px;
-  background: var(--red);
-  transform: translateX(-50%);
-  display: block;
-  z-index: 10;
-}
+
 
 .tach-track {
   height: 9px;
   border-radius: 8px;
-  background: #1a2530;
+  background: #252b4d;
   position: relative;
   overflow: hidden;
 }
@@ -184,7 +179,7 @@ h1 span {
 .tach-track > div {
   height: 100%;
   width: 0;
-  background: linear-gradient(90deg, #2a385c, #4a5c8a 65%, #7a8fc8);
+  background: linear-gradient(90deg, #25316f, #4656b8 65%, #8294ff);
   border-radius: 8px;
   transition: width 0.12s linear;
 }
@@ -194,52 +189,46 @@ h1 span {
   justify-content: space-between;
   margin-top: 6px;
   font-size: 9px;
-  color: #7a8fc8;
+  color: #8294ff;
   letter-spacing: 0.08em;
 }
 
 .gear-strip {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr;
   align-items: center;
-  gap: 13px;
+  column-gap: 13px;
+  row-gap: 5px;
   margin-top: 17px;
   padding-top: 14px;
   border-top: 1px solid var(--line);
 }
-
-.gear-values {
-  display: flex;
-  gap: 5px;
-}
-
+.gear-values { display: flex; gap: 5px; }
 .gear-values b {
-  display: grid;
-  place-items: center;
-  width: 25px;
-  height: 25px;
-  border-radius: 7px;
-  background: #0a141d;
-  color: #7a8fc8;
-  font-size: 10px;
-  cursor: pointer;
-  user-select: none;
-  border: 1px solid rgba(122, 143, 200, 0.1);
+  display: grid; place-items: center; width: 25px; height: 25px;
+  border-radius: 7px; background: #10152b; color: #8294ff;
+  font-size: 10px; cursor: pointer; user-select: none;
+  border: 1px solid rgba(130,148,255,.16);
 }
-
 .gear-values b.selected {
-  background: #0a1a2a;
-  color: #ff3300;
-  box-shadow: 0 0 15px rgba(122, 143, 200, 0.3);
-  border-color: rgba(122, 143, 200, 0.3);
+  background: #171d42; color: #ff3030;
+  box-shadow: 0 0 15px rgba(130,148,255,.3);
+  border-color: rgba(130,148,255,.4);
 }
-
 .shift-hint {
-  margin-left: auto;
-  color: #82929d;
+  grid-column: 1 / -1;
+  display: block;
+  width: 100%;
+  min-height: 14px;
+  margin: 0;
+  color: #aab3df;
   font-size: 9px;
-  text-align: right;
+  line-height: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
 }
-
 .controls { padding: 17px; margin-top: 12px; }
 
 .section-head {
@@ -248,15 +237,15 @@ h1 span {
   justify-content: space-between;
   font-size: 9px;
   letter-spacing: 0.16em;
-  color: #a8b7bf;
+  color: #b8c2ef;
   font-weight: 800;
 }
 
 .mode-pill {
   padding: 5px 8px;
   border-radius: 20px;
-  background: #0a141d;
-  color: #7a8fc8;
+  background: #10152b;
+  color: #8294ff;
   font-size: 8px;
   letter-spacing: 0.12em;
 }
@@ -284,8 +273,8 @@ h1 span {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  color: #7a8fc8;
-  background: #05080d;
+  color: #8294ff;
+  background: #070914;
   box-shadow: inset 0 0 0 1px rgba(122, 143, 200, 0.1);
   border: 1px solid rgba(122, 143, 200, 0.05);
 }
@@ -293,7 +282,7 @@ h1 span {
 .pedal .pedal-icon {
   font-size: 19px;
   line-height: 1;
-  color: #4a6a7a;
+  color: #6570a8;
 }
 
 .pedal strong {
@@ -303,7 +292,7 @@ h1 span {
 
 .pedal small {
   font-size: 8px;
-  color: #4a6a7a;
+  color: #6570a8;
 }
 
 .pedal:active,
@@ -324,12 +313,12 @@ h1 span {
   border-color: rgba(122, 143, 200, 0.1);
 }
 
-.gas .pedal-icon { color: #7a8fc8; }
+.gas .pedal-icon { color: #8294ff; }
 
 .start {
   border-radius: 14px;
-  background: #7a8fc8;
-  color: #05080d;
+  background: #8294ff;
+  color: #070914;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -341,8 +330,8 @@ h1 span {
 }
 
 .start.running {
-  background: #0a1a2a;
-  color: #7a8fc8;
+  background: #171d42;
+  color: #8294ff;
   box-shadow: inset 0 0 0 1px rgba(122, 143, 200, 0.3);
 }
 
@@ -378,11 +367,11 @@ h1 span {
 
 .slider-row b {
   font-weight: 600;
-  color: #7a8fc8;
+  color: #8294ff;
 }
 
 .slider-row output {
-  color: #7a8fc8;
+  color: #8294ff;
   font-variant-numeric: tabular-nums;
 }
 
@@ -390,7 +379,7 @@ input[type="range"] {
   display: block;
   width: 100%;
   margin: 8px 0 0;
-  accent-color: #7a8fc8;
+  accent-color: #8294ff;
   height: 17px;
   touch-action: pan-y;
 }
@@ -408,7 +397,7 @@ input[type="range"] {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #7a8fc8;
+  color: #8294ff;
   font-size: 10px;
 }
 
@@ -418,7 +407,7 @@ input[type="range"] {
   width: 31px;
   height: 18px;
   border-radius: 20px;
-  background: #05080d;
+  background: #070914;
   position: relative;
   transition: 0.2s;
   border: 1px solid rgba(122, 143, 200, 0.1);
@@ -432,12 +421,12 @@ input[type="range"] {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #4a6a7a;
+  background: #6570a8;
   transition: 0.2s;
 }
 
 .toggle input:checked + .switch {
-  background: #0a1a2a;
+  background: #171d42;
   border-color: rgba(122, 143, 200, 0.3);
 }
 
@@ -449,8 +438,8 @@ input[type="range"] {
 .mute {
   border: 1px solid var(--line);
   border-radius: 20px;
-  background: #05080d;
-  color: #7a8fc8;
+  background: #070914;
+  color: #8294ff;
   padding: 7px 11px;
   font-size: 9px;
   letter-spacing: 0.08em;
@@ -461,32 +450,18 @@ input[type="range"] {
   padding: 11px 14px;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: #05080d;
-  color: #a8b7bf;
+  background: #070914;
+  color: #b8c2ef;
   font-size: 10px;
 }
 
 .source-panel summary {
-  color: #7a8fc8;
+  color: #8294ff;
   font-weight: 650;
   cursor: pointer;
 }
 
 .source-panel p { line-height: 1.5; }
-
-.source-panel label {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  margin: 10px 0;
-  color: #7a8fc8;
-}
-
-.source-panel input {
-  max-width: 58%;
-  font-size: 9px;
-}
 
 .source-panel small {
   line-height: 1.5;
@@ -495,7 +470,7 @@ input[type="range"] {
 
 footer {
   text-align: center;
-  color: #4a6a7a;
+  color: #6570a8;
   font-size: 8px;
   margin: 10px 4px 0;
   line-height: 1.4;
@@ -526,4 +501,63 @@ footer {
   .gear-strip { gap: 8px; }
   .gear-values { gap: 3px; }
   .gear-values b { width: 23px; }
+  .shift-hint { font-size: 8px; }
+}
+
+/* Movable red shift-point markers on the tachometer */
+h1 { white-space: nowrap; }
+h1 > span { white-space: nowrap; }
+.title-di { color: #ff3030 !important; }
+.tach-track { overflow: visible; }
+.shift-marker {
+  appearance: none;
+  -webkit-appearance: none;
+  position: absolute;
+  z-index: 5;
+  top: -11px;
+  width: 100%;
+  height: 31px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  pointer-events: none;
+  touch-action: pan-y;
+  outline: none;
+}
+.shift-marker::-webkit-slider-runnable-track {
+  height: 9px;
+  background: transparent;
+}
+.shift-marker::-moz-range-track {
+  height: 9px;
+  background: transparent;
+}
+.shift-marker::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 0;
+  height: 0;
+  margin-top: -5px;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 12px solid #ff3030;
+  filter: drop-shadow(0 0 3px rgba(255,48,48,.75));
+  pointer-events: auto;
+  cursor: ew-resize;
+}
+.shift-marker::-moz-range-thumb {
+  width: 0;
+  height: 0;
+  border: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 12px solid #ff3030;
+  border-radius: 0;
+  background: transparent;
+  filter: drop-shadow(0 0 3px rgba(255,48,48,.75));
+  pointer-events: auto;
+  cursor: ew-resize;
+}
+.shift-marker:focus-visible::-webkit-slider-thumb {
+  filter: drop-shadow(0 0 5px #fff);
 }
