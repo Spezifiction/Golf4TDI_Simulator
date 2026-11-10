@@ -4,7 +4,7 @@ Eine interaktive Web-App zur realistischen Simulation des Motorverhaltens eines 
 
 Seite über folgenden Link öffnen:
 
-https://spezifiction.github.io/Golf4TDI_Simulator/
+https://spezifiction.github.io/TDI_Simulator/
 
 ## ✨ Features
 
@@ -158,17 +158,6 @@ Die Simulation verwendet fünf Audio-Dateien:
 4. **ffahrt-t5-last-loop.mp3** – Fahr-Sound T5 TDI mit höherer Last (Loop)
 5. **drehzahl-anhebung.mp3** – Drehzahl-Anstieg (wird beim Gasgeben abgespielt)
 
-### Benutzerdefinierte Samples
-Im Abschnitt **"Audio-Quellen & Hinweise"** können eigene Audio-Dateien hochgeladen werden:
-- **Leerlauf-Sample** (ersetzt `leerlauf-loop.mp3`)
-- **Fahr-Sample** (ersetzt `fahr-loop.mp3`)
-
-**Wichtig**:
-- Audiodateien werden **nur lokal** verarbeitet
-- Keine Übertragung an Server
-- Format: MP3 empfohlen
-- Das Drehzahl-Sweep-Sample ist fest integriert
-
 ## 📝 Changelog / Letzte Änderungen
 - **Farben**: An Golf 4 Tacho angepasst (lila-blaue Ziffern statt Babyblau)
 - **Schaltpunkte**: Gelbe/rote Markierungen bei 1200 U/min und 2000 U/min
@@ -195,15 +184,3 @@ Dieses Projekt ist für den **persönlichen Gebrauch** bestimmt. Die Audio-Sampl
 ---
 
 **Erstellt mit Web Audio API und Vanilla JavaScript**
-
-
-## Aktualisierte Bedienung (v5)
-
-- Das Soundmodell ist fest integriert; eigene Audiosamples können nicht mehr hochgeladen werden.
-- Die automatischen Schaltpunkte sind über zwei Regler einstellbar (Standard: Runterschalten 1.200 U/min, Hochschalten 2.000 U/min). Die Logik hält mindestens 100 U/min Abstand zwischen den Schaltpunkten.
-- Die Oberfläche verwendet eine blau-violette Tachobeleuchtung mit roten Akzenten.
-- Für iOS wird `AudioContext.resume()` unmittelbar beim Antippen des Start-Buttons angestoßen. Ein zusätzlicher Touch-Start-Handler wurde entfernt, damit Startaktionen nicht doppelt ausgelöst werden.
-- Bei einem iOS-Audiostartfehler erscheint höchstens ein Hinweis pro Seitenaufruf. Er weist auch auf das vollständige Schließen und Neuladen der Web-App hin.
-- Der Service-Worker-Cache wurde auf v5 angehoben. Nach dem GitHub-Pages-Update die Web-App einmal vollständig schließen und neu öffnen.
-
-Hinweis: Die Audio-Routine wurde code-seitig robuster gestaltet und die JavaScript-Syntax geprüft. Ein physischer Test auf einem iPhone mit iOS 27.2 war in dieser Bearbeitung nicht möglich.
