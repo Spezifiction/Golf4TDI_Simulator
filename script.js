@@ -5,6 +5,8 @@
   "use strict";
   const $=id=>document.getElementById(id);
   // iOS Erkennung - wichtig für Audio Autoplay Policies
+  // iOS 17+: Web Audio auch bei aktivem Stummschalter hörbar machen
+  try{if(navigator.audioSession)navigator.audioSession.type='playback'}catch(_){}
   const isIOS = /iPad|iPhone|iPod/.test(navigator.platform) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   
   const s={ctx:null,initPromise:null,master:null,idleGain:null,driveGain:null,idleFilter:null,driveFilter:null,
@@ -46,7 +48,7 @@
     txt("rpmOut",`${Math.round(s.rpm)} U/min`);
     $("tachFill").style.width=`${Math.max(0,Math.min(100,s.rpm/MAX_RPM*100))}%`;
     ["N","1","2","3","4","5"].forEach((g,i)=>{const el=$("gear"+g);if(el)el.classList.toggle("selected",s.gear===i)});
-    $("rpmSlider").value=Math.round(s.rpm);
+    if(!s.useManualRpm) $("rpmSlider").value=Math.round(s.rpm);
   }
   async function getBuffer(url,ctx=s.ctx){
     try {
@@ -186,6 +188,8 @@ function makeLoop(buffer,filter){
     if(s.gear===0 && s.rpm>=1000) return 1;
     // Kein Gangwechsel im Leerlauf
     if(s.gear===0) return 0;
+    // Drehzahl-Modus: Gang bleibt, Drehzahl wird vom Nutzer vorgegeben
+    if(s.useManualRpm) return s.gear;
     
     // Schaltverzögerung: nur alle 600ms schalten (realistischer für manuelles Getriebe)
     if(s.shiftCooldown>Date.now()) return s.gear;
@@ -350,24 +354,32 @@ function makeLoop(buffer,filter){
       s.rpm = Math.max(IDLE, Math.min(MAX_RPM, s.rpm));
     } else {
       const targetRpm = targetRPM();
-      const response = targetRpm > s.rpm ? 0.8 : 1.8;
-      s.rpm += (targetRpm - s.rpm) * Math.min(1, dt * response);
-      s.rpm = Math.max(s.running ? IDLE : 0, Math.min(MAX_RPM, s.rpm));
-      const targetSpeed = calcSpeedFromRpm();
-      if(s.gear > 0) s.speed += (targetSpeed - s.speed) * Math.min(1, dt * 1.5);
-      else s.speed = 0;
-      if(s.brakeHeld) s.speed = Math.max(0, s.speed - 24 * dt);
-      const maxPossibleSpeed = s.gear > 0 ? MAX_RPM * 0.13 / ratios[s.gear] : 200;
-      s.speed = Math.max(0, Math.min(maxPossibleSpeed, s.speed));
+      if(s.gear > 0 && !s.useManualRpm){
+        // Gang eingelegt: Geschwindigkeit strebt dem Gang/Last-Ziel zu, die Drehzahl folgt
+        // starr der Geschwindigkeit. Dadurch greifen die Schaltpunkte (Slider) wirklich:
+        // nach dem Hochschalten fällt die Drehzahl, Runterschalten bei zu niedriger Drehzahl.
+        const targetSpeed = targetRpm * 0.13 / ratios[s.gear];
+        const k = targetSpeed > s.speed ? 0.8 : 0.5;
+        s.speed += (targetSpeed - s.speed) * Math.min(1, dt * k);
+        if(s.brakeHeld) s.speed = Math.max(0, s.speed - 24 * dt);
+        s.speed = Math.max(0, Math.min(MAX_RPM * 0.13 / ratios[s.gear], s.speed));
+        s.rpm = Math.max(IDLE, Math.min(MAX_RPM, s.speed * ratios[s.gear] / 0.13));
+      } else {
+        const response = s.useManualRpm ? 8 : (targetRpm > s.rpm ? 0.8 : 1.8);
+        s.rpm += (targetRpm - s.rpm) * Math.min(1, dt * response);
+        s.rpm = Math.max(s.running ? IDLE : 0, Math.min(MAX_RPM, s.rpm));
+        const targetSpeed = calcSpeedFromRpm();
+        if(s.gear > 0) s.speed += (targetSpeed - s.speed) * Math.min(1, dt * 1.5);
+        else s.speed = 0;
+        if(s.brakeHeld) s.speed = Math.max(0, s.speed - 24 * dt);
+        const maxPossibleSpeed = s.gear > 0 ? MAX_RPM * 0.13 / ratios[s.gear] : 200;
+        s.speed = Math.max(0, Math.min(maxPossibleSpeed, s.speed));
+      }
     }
 
     // UI aktualisieren
     $("speedSlider").value=Math.round(s.speed);
     $("loadSlider").value=Math.round(s.load*100);
-    if(s.useManualRpm) {
-      $("rpmSlider").value=Math.round(s.rpm);
-      txt("rpmOut",`${Math.round(s.rpm)} U/min`);
-    }
     ui();audio();s.raf=requestAnimationFrame(tick);
   }
   async function start(){
@@ -407,7 +419,7 @@ function makeLoop(buffer,filter){
       s.running = true;
       s.lastTime = performance.now();
       s.rpm = IDLE; s.load = 0; s.speed = 0; s.gear = 0;
-      s.useManualRpm = false; s.manualRpmTarget = null; s.shiftCooldown = 0;
+      s.manualRpmTarget = s.useManualRpm ? IDLE : null; s.shiftCooldown = 0;
       
       $("startBtn").classList.add("running");
       txt("startLabel", "MOTOR STOPPEN");
@@ -448,7 +460,7 @@ function makeLoop(buffer,filter){
     });
     $("startBtn").classList.remove("running");$("gasBtn").classList.remove("active");$("brakeBtn").classList.remove("active");
     txt("startLabel","MOTOR STARTEN");txt("stateLabel","BEREIT");$("liveDot").classList.remove("on");
-    s.useManualRpm=false;s.manualRpmTarget=null;s.shiftCooldown=0;
+    s.manualRpmTarget=null;s.shiftCooldown=0;
     s.rpm=0;s.load=0;s.speed=0;s.gear=0;$("rpmSlider").value=0;txt("rpmOut","0 U/min");ui();
   }
   function modulate(){clearInterval(s.modTimer);s.modTimer=setInterval(()=>{s.mod=.985+Math.random()*.03;if(s.running)audio()},1800+Math.random()*1600)}
@@ -475,8 +487,7 @@ function makeLoop(buffer,filter){
 
     s.gasHeld = false;
     s.brakeHeld = false;
-    s.useManualRpm = false;
-    s.manualRpmTarget = null;
+    setRpmMode(false);
     s.shiftCooldown = 0;
     s.speed = 0;
     s.gear = 0;
@@ -606,7 +617,8 @@ function makeLoop(buffer,filter){
     if(s.running&&s.ctx&&s.ctx.state!=="running") {
       await recoverAudio().catch(console.warn);
     }
-    s[key]=true;b.classList.add("active");s.useManualRpm=false;
+    if(s.useManualRpm) return; // Drehzahl-Modus: Pedale inaktiv
+    s[key]=true;b.classList.add("active");
     if(key==="gasHeld")playRevSweep();
     if(s.cityDriveActive)stopCityDrive();
   });
@@ -648,10 +660,7 @@ function makeLoop(buffer,filter){
     }
     
     // Im manuellen Modus bleiben, aber mit neuer Drehzahl (nur wenn keine Stadtfahrt aktiv)
-    if(!s.cityDriveActive) {
-      s.useManualRpm = true;
-      s.manualRpmTarget = s.rpm;
-    }
+    if(s.useManualRpm) s.manualRpmTarget = Math.max(IDLE, s.rpm);
     
     // Update Load basierend auf neuer Drehzahl (nur wenn keine Stadtfahrt aktiv)
     if(s.gear > 0 && !s.cityDriveActive) {
@@ -702,7 +711,7 @@ function makeLoop(buffer,filter){
     });
   }
   $("speedSlider").addEventListener("input",e=>{
-    s.speed=+e.target.value;s.useManualRpm=false;stopCityDrive();
+    s.speed=+e.target.value;stopCityDrive();
     // Wenn manuell Geschwindigkeit gesetzt wird, Drehzahl anpassen
     if(s.running && s.gear>0){
       // v = rpm * 0.13 / ratio => rpm = v * ratio / 0.13
@@ -711,20 +720,26 @@ function makeLoop(buffer,filter){
     }
     if(s.running){audio()}ui();
   });
-  $("loadSlider").addEventListener("input",e=>{s.load=+e.target.value/100;s.useManualRpm=false;stopCityDrive();if(s.running)audio();ui()});
-  $("rpmSlider").addEventListener("input",e=>{
-    s.useManualRpm=true;stopCityDrive();
-    s.manualRpmTarget=Math.max(IDLE,Math.min(MAX_RPM,+e.target.value));
-    s.rpm=s.manualRpmTarget;
-    // Geschwindigkeit aus neuer RPM berechnen
-    if(s.gear > 0) {
-      s.speed = s.rpm * 0.13 / ratios[s.gear];
-    } else {
-      s.speed = 0;
-    }
-    txt("rpmOut",`${Math.round(s.rpm)} U/min`);
-    if(s.running){ui();audio()}
+  $("loadSlider").addEventListener("input",e=>{s.load=+e.target.value/100;stopCityDrive();if(s.running)audio();ui()});
+  function setRpmMode(on){
+    s.useManualRpm=!!on;
+    s.manualRpmTarget=on?Math.max(IDLE,s.rpm||IDLE):null;
+    if(on){s.gasHeld=false;s.brakeHeld=false;$("gasBtn").classList.remove("active");$("brakeBtn").classList.remove("active")}
+    const t=$("rpmModeToggle");if(t)t.checked=!!on;
+    $("rpmSlider").disabled=!on;
+    ["loadSlider","speedSlider","gasBtn","brakeBtn"].forEach(id=>{$(id).disabled=!!on});
+    if(on)$("rpmSlider").value=Math.round(s.rpm);
+  }
+  $("rpmModeToggle").addEventListener("change",e=>{
+    if(e.target.checked){stopCityDrive();const c=$("cityToggle");if(c)c.checked=false}
+    setRpmMode(e.target.checked);
   });
+  $("rpmSlider").addEventListener("input",e=>{
+    if(!s.useManualRpm)return;
+    s.manualRpmTarget=Math.max(IDLE,Math.min(MAX_RPM,+e.target.value));
+    txt("rpmOut",`${Math.round(s.manualRpmTarget)} U/min`);
+  });
+  setRpmMode(false);
   function updateShiftOutputs(){
     $("shiftDownMarker").value=SHIFT_DOWN;
     $("shiftUpMarker").value=SHIFT_UP;
@@ -735,7 +750,7 @@ function makeLoop(buffer,filter){
   $("shiftDownMarker").addEventListener("input",e=>{
     SHIFT_DOWN=+e.target.value;
     if(SHIFT_DOWN>=SHIFT_UP){
-      SHIFT_UP=Math.min(3000,SHIFT_DOWN+100);
+      SHIFT_UP=Math.min(4200,SHIFT_DOWN+100);
     }
     updateShiftOutputs();
   });
