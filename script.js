@@ -34,6 +34,27 @@
     [18500, {brake: true, load: 0, speed: 0}],
     [20000, {gear: 0, brake: false, load: 0, speed: 0}]
   ];
+  // Überlandfahrt: 60-s-Loop zwischen 60 und 110 km/h (Start = Ende bei ca. 60 km/h im 4. Gang).
+  const overlandSequence = [
+    [0,     {gear: 4, load: 0.15, speed: 60}],
+    [4000,  {load: 0.30, speed: 78}],
+    [7000,  {gear: 5, load: 0.20, speed: 90}],
+    [11000, {load: 0.22, speed: 100}],
+    [15000, {load: 0.30, speed: 110}],
+    [21000, {load: 0.16, speed: 110}],
+    [24000, {load: 0.00, speed: 88}],
+    [30000, {gear: 4, load: 0.12, speed: 80}],
+    [34000, {load: 0.32, speed: 92}],
+    [38000, {gear: 5, load: 0.20, speed: 100}],
+    [42000, {load: 0.00, speed: 75}],
+    [52000, {gear: 4, load: 0.05, speed: 62}],
+    [58000, {load: 0.15, speed: 60}]
+  ];
+  const driveProfiles = {
+    city:     {seq: cityDriveSequence, duration: 30000, toggle: "cityToggle",     label: "Stadtfahrt", start: {speed: 0,  gear: 0, rpm: IDLE}},
+    gps:      {seq: [],               duration: 3600000, toggle: "gpsToggle",      label: "GPS",        start: {speed: 0,  gear: 0, rpm: IDLE}},
+    overland: {seq: overlandSequence,  duration: 60000, toggle: "overlandToggle", label: "Überland",   start: {speed: 60, gear: 4, rpm: 60 * ratios[4] / 0.13}}
+  };
   const txt=(id,v)=>$(id).textContent=v;
 
   function ui(){
@@ -337,6 +358,9 @@ function makeLoop(buffer,filter){
       const speedError = s.cityDriveSpeedTarget - s.speed;
       if(s.cityDriveBrakeActive) {
         s.speed = Math.max(0, s.speed - 24 * dt);
+      } else if(s.driveKind === "gps") {
+        s.speed += speedError * Math.min(1, dt * 2.5);
+        if(Math.abs(speedError) < 0.05) s.speed = s.cityDriveSpeedTarget;
       } else if(speedError > 0) {
         const acceleration = Math.min(10, 2.5 + s.load * 30);
         s.speed = Math.min(s.cityDriveSpeedTarget, s.speed + acceleration * dt);
@@ -429,7 +453,7 @@ function makeLoop(buffer,filter){
       shift(); audio();
       cancelAnimationFrame(s.raf);
       s.raf = requestAnimationFrame(tick);
-      if($("modToggle").checked) modulate();
+      modulate();
       txt("rpmOut", `${Math.round(s.rpm)} U/min`);
       $("rpmSlider").value = Math.round(s.rpm);
       ui();
@@ -465,35 +489,96 @@ function makeLoop(buffer,filter){
   }
   function modulate(){clearInterval(s.modTimer);s.modTimer=setInterval(()=>{s.mod=.985+Math.random()*.03;if(s.running)audio()},1800+Math.random()*1600)}
   
-  async function startCityDrive(){
+  async function startCityDrive(kind = "city"){
     stopCityDrive(false);
+    s.driveKind = kind;
+    Object.keys(driveProfiles).forEach(k => { if(k !== kind) $(driveProfiles[k].toggle).checked = false; });
     // Warten, bis Motor und Audio vollständig gestartet sind (auch bei langsamem Laden).
     if(!s.running) {
       await start();
-      if(!s.running || !$("cityToggle").checked) return;
+      if(!s.running || !$(driveProfiles[kind].toggle).checked) return;
     }
     startCityDriveInternal();
+    if(kind === "gps") startGps();
+  }
+
+  // ---- GPS-Modus: reale Geschwindigkeit -> Gang, Drehzahl, Last ----
+  function showGpsDialog(msg){
+    txt("gpsDialogText", msg);
+    $("gpsDialog").hidden = false;
+    $("gpsDialogOk").focus();
+  }
+  function gpsFail(msg){
+    stopCityDrive();          // setzt Toggle zurück und geht in den Leerlauf
+    showGpsDialog(msg);
+  }
+  function startGps(){
+    if(!("geolocation" in navigator)) return gpsFail("Dieses Gerät bzw. dieser Browser unterstützt keine Standortabfrage. Der GPS-Modus ist am PC meist nicht nutzbar – bitte auf einem Smartphone verwenden.");
+    if(window.isSecureContext === false) return gpsFail("Der Standortzugriff funktioniert nur über eine gesicherte Verbindung (HTTPS). Bitte die Seite über HTTPS öffnen.");
+    s.gpsFixes = 0; s.gpsNullCount = 0; s.gpsLastSpeed = 0; s.gpsAccel = 0; s.gpsLastFix = performance.now(); s.gpsGearTime = 0;
+    s.gpsWatch = navigator.geolocation.watchPosition(pos => {
+      const v = pos.coords.speed;
+      s.gpsFixes++;
+      if(v === null || v === undefined || isNaN(v)) {
+        // Viele PCs liefern Positionen (WLAN), aber keine Geschwindigkeit.
+        if(++s.gpsNullCount >= 5 && s.gpsFixes === s.gpsNullCount) gpsFail("Es liegen keine GPS-Geschwindigkeitsdaten vor. Am PC ist das üblich – bitte auf einem Smartphone mit GPS im Freien verwenden.");
+        return;
+      }
+      s.gpsNullCount = 0;
+      const kmh = Math.max(0, v * 3.6);
+      const now = performance.now(), dtg = Math.max(0.3, (now - s.gpsLastFix) / 1000);
+      const a = (kmh - s.gpsLastSpeed) / dtg;
+      s.gpsAccel += (a - s.gpsAccel) * 0.5;
+      s.gpsLastSpeed = kmh; s.gpsLastFix = now;
+      s.cityDriveSpeedTarget = Math.min(160, kmh);
+    }, err => {
+      if(err.code === 1) gpsFail("Der Zugriff auf den Standort wurde verweigert. Bitte die Standortberechtigung für diese Seite in den Browser-/Geräteeinstellungen erlauben.");
+      else if(err.code === 2) gpsFail("Es ist kein GPS-Signal verfügbar. Bitte im Freien erneut versuchen und die Ortungsdienste aktivieren.");
+      else if(s.gpsFixes === 0) gpsFail("Es konnte kein GPS-Signal ermittelt werden (Zeitüberschreitung). Bitte im Freien erneut versuchen.");
+    }, {enableHighAccuracy: true, maximumAge: 0, timeout: 20000});
+
+    s.gpsTimer = setInterval(() => {
+      if(!s.cityDriveActive || s.driveKind !== "gps") return;
+      // Signalverlust: Geschwindigkeit langsam gegen 0 laufen lassen
+      if(performance.now() - s.gpsLastFix > 8000) { s.cityDriveSpeedTarget = 0; s.gpsAccel = 0; }
+      const v = s.speed;
+      // Gangwahl mit Hysterese (Hochschalten > 2200, Runterschalten < 1200 U/min)
+      if(v < 1) { s.gear = 0; }
+      else if(s.gear === 0) { s.gear = 1; }
+      else if(Date.now() > s.gpsGearTime) {
+        const rpmIn = g => v * ratios[g] / 0.13;
+        if(s.gear < 5 && rpmIn(s.gear) > 2200) { s.gear++; s.gpsGearTime = Date.now() + 1200; txt("shiftHint", `GPS → ${s.gear}. GANG`); }
+        else if(s.gear > 1 && rpmIn(s.gear) < 1200) { s.gear--; s.gpsGearTime = Date.now() + 1200; txt("shiftHint", `GPS → ${s.gear}. GANG`); }
+      }
+      // Last aus Beschleunigung und Grundlast für Fahrtwiderstand
+      let load = 0;
+      if(v >= 1) load = 0.08 + Math.max(0, s.gpsAccel) * 0.06 + (v / 160) * 0.12;
+      if(s.gpsAccel < -1) load = 0;
+      s.cityDriveLoadTarget = Math.max(0, Math.min(1, load));
+    }, 100);
   }
 
   function startCityDriveInternal() {
+    const prof = driveProfiles[s.driveKind || "city"];
     s.cityDriveActive = true;
     s.cityDriveStartTime = performance.now();
     s.lastCityAction = 0;
     s.cityDriveCycle = 0;
     s.cityDriveGasPlayed = false;
     s.cityDriveLoadTarget = 0;
-    s.cityDriveSpeedTarget = 0;
+    s.cityDriveSpeedTarget = prof.start.speed;
     s.cityDriveBrakeActive = false;
 
     s.gasHeld = false;
     s.brakeHeld = false;
     setRpmMode(false);
     s.shiftCooldown = 0;
-    s.speed = 0;
-    s.gear = 0;
-    s.rpm = IDLE;
+    s.speed = prof.start.speed;
+    s.gear = prof.start.gear;
+    s.rpm = prof.start.rpm;
 
-    const loopDuration = 30000;
+    const loopDuration = prof.duration;
+    const sequence = prof.seq;
     s.cityDriveLoopInterval = setInterval(() => {
       if(!s.cityDriveActive) return;
       const elapsed = performance.now() - s.cityDriveStartTime;
@@ -508,8 +593,8 @@ function makeLoop(buffer,filter){
       }
 
       // Bei verzögerten Browser-Ticks alle inzwischen fälligen Aktionen abarbeiten.
-      while(s.lastCityAction < cityDriveSequence.length) {
-        const [time, action] = cityDriveSequence[s.lastCityAction];
+      while(s.lastCityAction < sequence.length) {
+        const [time, action] = sequence[s.lastCityAction];
         if(loopElapsed < time) break;
         applyCityAction(action);
         s.lastCityAction++;
@@ -517,14 +602,21 @@ function makeLoop(buffer,filter){
       }
     }, 40);
 
-    $("cityToggle").parentElement.classList.add("active");
+    $(prof.toggle).parentElement.classList.add("active");
     ui();
     if(s.running) audio();
   }
 
   function stopCityDrive(resetToggle = true){
+    const wasGps = s.driveKind === "gps";
+    if(s.gpsWatch !== undefined && s.gpsWatch !== null) { navigator.geolocation.clearWatch(s.gpsWatch); s.gpsWatch = null; }
+    if(s.gpsTimer) { clearInterval(s.gpsTimer); s.gpsTimer = null; }
+    if(wasGps && s.cityDriveActive) {
+      // Fallback: zurück in den Leerlauf
+      s.speed = 0; s.gear = 0; s.load = 0; s.rpm = Math.max(s.rpm, IDLE);
+    }
     s.cityDriveActive = false;
-    if(resetToggle) $("cityToggle").checked = false;
+    if(resetToggle) Object.values(driveProfiles).forEach(p => { $(p.toggle).checked = false; });
     if(s.cityDriveLoopInterval) {
       clearInterval(s.cityDriveLoopInterval);
       s.cityDriveLoopInterval = null;
@@ -537,7 +629,7 @@ function makeLoop(buffer,filter){
     // User may be manually controlling
     
     // Update UI
-    $("cityToggle").parentElement.classList.remove("active");
+    Object.values(driveProfiles).forEach(p => $(p.toggle).parentElement.classList.remove("active"));
     $("brakeBtn").classList.remove("active");
     ui();
     if(s.running) audio();
@@ -579,7 +671,7 @@ function makeLoop(buffer,filter){
           s.gear = action.gear;
         }
         s.shiftCooldown = Date.now() + 600;
-        txt("shiftHint",`Stadtfahrt → ${action.gear===0?'N':action.gear+'. GANG'}`);
+        txt("shiftHint",`${driveProfiles[s.driveKind||"city"].label} → ${action.gear===0?'N':action.gear+'. GANG'}`);
         setTimeout(()=>txt("shiftHint",`Automatik · ↑${SHIFT_UP} / ↓${SHIFT_DOWN} U/min oder klicke Gang`),650);
       }
     }
@@ -617,7 +709,7 @@ function makeLoop(buffer,filter){
     if(s.running&&s.ctx&&s.ctx.state!=="running") {
       await recoverAudio().catch(console.warn);
     }
-    if(s.useManualRpm) return; // Drehzahl-Modus: Pedale inaktiv
+    if(s.useManualRpm) setRpmMode(false); // Pedal beendet Drehzahl-Modus
     s[key]=true;b.classList.add("active");
     if(key==="gasHeld")playRevSweep();
     if(s.cityDriveActive)stopCityDrive();
@@ -697,21 +789,17 @@ function makeLoop(buffer,filter){
   // Ein click-Handler deckt Touch und Maus ab; kein doppeltes touchstart.
   hold("gasBtn","gasHeld");hold("brakeBtn","brakeHeld");
   // Gang-Buttons klickbar
-  ["N","1","2","3","4","5"].forEach((g,i)=>{const btn=$("gear"+g);if(btn)btn.addEventListener("click",()=>{if(s.cityDriveActive)stopCityDrive();selectGearManually(i)})});
+  ["N","1","2","3","4","5"].forEach((g,i)=>{const btn=$("gear"+g);if(btn)btn.addEventListener("click",()=>{if(s.cityDriveActive)stopCityDrive();if(s.useManualRpm)setRpmMode(false);selectGearManually(i)})});
   
   // Stadtfahrt Toggle
-  const cityToggle = $("cityToggle");
-  if(cityToggle) {
-    cityToggle.addEventListener("change", (e) => {
-      if(e.target.checked) {
-        startCityDrive();
-      } else {
-        stopCityDrive();
-      }
+  Object.entries(driveProfiles).forEach(([kind, p]) => {
+    $(p.toggle).addEventListener("change", (e) => {
+      if(e.target.checked) startCityDrive(kind);
+      else stopCityDrive();
     });
-  }
+  });
   $("speedSlider").addEventListener("input",e=>{
-    s.speed=+e.target.value;stopCityDrive();
+    s.speed=+e.target.value;stopCityDrive();if(s.useManualRpm)setRpmMode(false);
     // Wenn manuell Geschwindigkeit gesetzt wird, Drehzahl anpassen
     if(s.running && s.gear>0){
       // v = rpm * 0.13 / ratio => rpm = v * ratio / 0.13
@@ -720,22 +808,15 @@ function makeLoop(buffer,filter){
     }
     if(s.running){audio()}ui();
   });
-  $("loadSlider").addEventListener("input",e=>{s.load=+e.target.value/100;stopCityDrive();if(s.running)audio();ui()});
+  $("loadSlider").addEventListener("input",e=>{s.load=+e.target.value/100;stopCityDrive();if(s.useManualRpm)setRpmMode(false);if(s.running)audio();ui()});
   function setRpmMode(on){
     s.useManualRpm=!!on;
     s.manualRpmTarget=on?Math.max(IDLE,s.rpm||IDLE):null;
     if(on){s.gasHeld=false;s.brakeHeld=false;$("gasBtn").classList.remove("active");$("brakeBtn").classList.remove("active")}
-    const t=$("rpmModeToggle");if(t)t.checked=!!on;
-    $("rpmSlider").disabled=!on;
-    ["loadSlider","speedSlider","gasBtn","brakeBtn"].forEach(id=>{$(id).disabled=!!on});
     if(on)$("rpmSlider").value=Math.round(s.rpm);
   }
-  $("rpmModeToggle").addEventListener("change",e=>{
-    if(e.target.checked){stopCityDrive();const c=$("cityToggle");if(c)c.checked=false}
-    setRpmMode(e.target.checked);
-  });
   $("rpmSlider").addEventListener("input",e=>{
-    if(!s.useManualRpm)return;
+    if(!s.useManualRpm){stopCityDrive();setRpmMode(true)}
     s.manualRpmTarget=Math.max(IDLE,Math.min(MAX_RPM,+e.target.value));
     txt("rpmOut",`${Math.round(s.manualRpmTarget)} U/min`);
   });
@@ -761,7 +842,6 @@ function makeLoop(buffer,filter){
     }
     updateShiftOutputs();
   });
-  $("modToggle").addEventListener("change",e=>{if(e.target.checked&&s.running)modulate();else{clearInterval(s.modTimer);s.mod=1;if(s.running)audio()}});
   $("muteBtn").addEventListener("click",()=>{
     s.muted=!s.muted;txt("muteBtn",s.muted?"TON AUS":"TON AN");
     if(s.ctx&&s.master){const now=s.ctx.currentTime;s.master.gain.cancelScheduledValues(now);s.master.gain.setTargetAtTime(s.muted?0:.82,now,.035)}
@@ -816,4 +896,5 @@ function makeLoop(buffer,filter){
     else onForeground();
   });
   window.addEventListener("pageshow",onForeground);
+  $("gpsDialogOk").addEventListener("click",()=>{$("gpsDialog").hidden=true});
 })();

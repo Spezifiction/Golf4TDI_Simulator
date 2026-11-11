@@ -36,7 +36,7 @@
 <main class="app">
   <header class="header">
     <div class="logo" aria-label="TDI"><span>T</span><span class="logo-di">DI</span></div>
-    <div><p class="eyebrow">INTERACTIVE ENGINE LAB</p><h1>Golf 4 / T5 <span>1.9 T<span class="title-di">DI</span></span></h1></div>
+    <div><p class="eyebrow">INTERACTIVE SLEEP GENERATOR FOR BABIES</p><h1>Golf 4 / T5 <span>1.9 T<span class="title-di">DI</span></span></h1></div>
     <div class="live"><i id="liveDot"></i><span id="stateLabel">BEREIT</span></div>
   </header>
 
@@ -74,12 +74,20 @@
       <label class="slider-row" for="rpmSlider"><span><b>Drehzahl</b><output id="rpmOut">0 U/min</output></span><input id="rpmSlider" type="range" min="0" max="4200" value="0"></label>
     </div>
 <div class="bottom-row">
-      <label class="toggle"><input id="modToggle" type="checkbox" checked><span class="switch"></span><span>Sanfte Modulation</span></label>
-      <label class="toggle"><input id="rpmModeToggle" type="checkbox"><span class="switch"></span><span>Drehzahl-Modus (Drehzahl statt Gas)</span></label>
-      <label class="toggle"><input id="cityToggle" type="checkbox"><span class="switch"></span><span>Stadtfahrt (Endlosloop · 30s)</span></label>
+      <label class="toggle"><input id="cityToggle" type="checkbox"><span class="switch"></span><span>Stadtfahrt<br>(Loop · 30s)</span></label>
+      <label class="toggle"><input id="overlandToggle" type="checkbox"><span class="switch"></span><span>Überland<br>(Loop · 60s)</span></label>
+      <label class="toggle"><input id="gpsToggle" type="checkbox"><span class="switch"></span><span>GPS-Modus</span></label>
       <button id="muteBtn" class="mute" type="button">TON AN</button>
     </div>
   </section>
+
+  <div id="gpsDialog" class="modal" role="dialog" aria-modal="true" aria-labelledby="gpsDialogTitle" hidden>
+    <div class="modal-box">
+      <h3 id="gpsDialogTitle">GPS nicht verfügbar</h3>
+      <p id="gpsDialogText"></p>
+      <button id="gpsDialogOk" type="button">OK</button>
+    </div>
+  </div>
 
   <details class="source-panel">
     <summary>Soundmodell & Hinweise</summary>
