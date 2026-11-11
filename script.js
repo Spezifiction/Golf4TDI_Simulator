@@ -407,6 +407,7 @@ function makeLoop(buffer,filter){
     ui();audio();s.raf=requestAnimationFrame(tick);
   }
   async function start(){
+    setMediaInfo();
     if(startInProgress)return;
     startInProgress=true;
     try{
@@ -878,6 +879,14 @@ function makeLoop(buffer,filter){
       txt("stateLabel","TON PAUSIERT");txt("startLabel","TON AKTIVIEREN");$("liveDot").classList.remove("on");
     }
   }
+  function setMediaInfo(){
+    try{
+      if("mediaSession" in navigator && window.MediaMetadata){
+        navigator.mediaSession.metadata=new MediaMetadata({title:"TDI Simulator",artist:"Golf 4 TDI",album:"TDI Simulator"});
+      }
+    }catch(e){}
+  }
+  setMediaInfo();
   function onForeground(){
     if(!document.hidden&&s.running&&s.ctx){
       // iOS pausiert AudioContext-Instanzen beim Wechsel in den Hintergrund.

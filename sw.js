@@ -1,4 +1,4 @@
-const CACHE="golf4-tdi-sim-v11";
+const CACHE="golf4-tdi-sim-v12";
 const FILES=[
   "./","./index.html","./style.css","./script.js","./manifest.webmanifest",
   "./icons/favicon.ico","./icons/favicon.svg","./icons/apple-touch-icon.png",
