@@ -411,6 +411,7 @@ function makeLoop(buffer,filter){
     if(startInProgress)return;
     startInProgress=true;
     try{
+      keepAliveOn(); // synchron im Tap-Handler, damit play() erlaubt ist
       if(s.running){await recoverAudio();return}
 
       // Safari/iOS: Context im direkten Tap-Handler erzeugen und resume()
@@ -460,6 +461,7 @@ function makeLoop(buffer,filter){
       ui();
     }catch(e){
       console.error("Start/Audio:", e);
+      if(!s.running)keepAliveOff();
       txt("stateLabel", "TON NICHT VERFÜGBAR");
       txt("startLabel", "ERNEUT TON STARTEN");
       
@@ -474,7 +476,7 @@ function makeLoop(buffer,filter){
     }
   }
   function stop(){
-    s.running=false;stopCityDrive();
+    s.running=false;stopCityDrive();keepAliveOff();
     s.gasHeld=false;s.brakeHeld=false;cancelAnimationFrame(s.raf);clearInterval(s.modTimer);
     if(s.ctx&&s.master){
       const now=s.ctx.currentTime;s.master.gain.cancelScheduledValues(now);
@@ -887,7 +889,45 @@ function makeLoop(buffer,filter){
     }catch(e){}
   }
   setMediaInfo();
+
+  // Hintergrund-/Sperrbildschirm-Betrieb: stilles <audio> + Media Session + Wake Lock
+  let keepAudio=null,wakeLock=null;
+  function keepAliveOn(){
+    try{
+      if(!keepAudio){
+        keepAudio=new Audio("audio/silence.wav");
+        keepAudio.loop=true;keepAudio.volume=.02;keepAudio.setAttribute("playsinline","");
+      }
+      const p=keepAudio.play();if(p&&p.catch)p.catch(()=>{});
+    }catch(_){}
+    try{
+      if("mediaSession" in navigator){
+        navigator.mediaSession.playbackState="playing";
+        navigator.mediaSession.setActionHandler("play",()=>{if(!s.running)start()});
+        navigator.mediaSession.setActionHandler("pause",()=>{if(s.running)stop()});
+        navigator.mediaSession.setActionHandler("stop",()=>{if(s.running)stop()});
+      }
+    }catch(_){}
+    requestWakeLock();
+  }
+  function keepAliveOff(){
+    try{if(keepAudio)keepAudio.pause()}catch(_){}
+    try{if("mediaSession" in navigator)navigator.mediaSession.playbackState="none"}catch(_){}
+    try{if(wakeLock){wakeLock.release();wakeLock=null}}catch(_){}
+  }
+  async function requestWakeLock(){
+    try{
+      if(!("wakeLock" in navigator)||wakeLock||document.hidden)return;
+      wakeLock=await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release",()=>{wakeLock=null});
+    }catch(_){wakeLock=null}
+  }
+
   function onForeground(){
+    if(!document.hidden&&s.running){
+      requestWakeLock();
+      try{if(keepAudio&&keepAudio.paused)keepAudio.play().catch(()=>{})}catch(_){}
+    }
     if(!document.hidden&&s.running&&s.ctx){
       // iOS pausiert AudioContext-Instanzen beim Wechsel in den Hintergrund.
       // Ein Resume-Versuch ist hilfreich; falls iOS eine Geste verlangt,

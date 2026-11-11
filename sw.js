@@ -1,9 +1,9 @@
-const CACHE="golf4-tdi-sim-v12";
+const CACHE="golf4-tdi-sim-v13";
 const FILES=[
   "./","./index.html","./style.css","./script.js","./manifest.webmanifest",
   "./icons/favicon.ico","./icons/favicon.svg","./icons/apple-touch-icon.png",
   "./icons/web-app-manifest-192x192.png","./icons/web-app-manifest-512x512.png",
-  "./audio/leerlauf-loop.mp3","./audio/fahr-loop.mp3","./audio/drehzahl-anhebung.mp3",
+  "./audio/silence.wav","./audio/leerlauf-loop.mp3","./audio/fahr-loop.mp3","./audio/drehzahl-anhebung.mp3",
   "./audio/leerlauf-t5-loop.mp3","./audio/fahrt-t5-cruise-loop.mp3","./audio/fahrt-t5-last-loop.mp3"
 ];
 self.addEventListener("install",event=>event.waitUntil(
