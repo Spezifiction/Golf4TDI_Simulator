@@ -1,4 +1,4 @@
-const CACHE="golf4-tdi-sim-v8";
+const CACHE="golf4-tdi-sim-v9";
 const FILES=[
   "./","./index.html","./style.css","./script.js","./manifest.webmanifest",
   "./icons/favicon.ico","./icons/favicon.svg","./icons/apple-touch-icon.png",
@@ -7,7 +7,7 @@ const FILES=[
   "./audio/leerlauf-t5-loop.mp3","./audio/fahrt-t5-cruise-loop.mp3","./audio/fahrt-t5-last-loop.mp3"
 ];
 self.addEventListener("install",event=>event.waitUntil(
-  caches.open(CACHE).then(cache=>cache.addAll(FILES)).then(()=>self.skipWaiting())
+  caches.open(CACHE).then(cache=>Promise.all(FILES.map(f=>cache.add(new Request(f,{cache:"reload"}))))).then(()=>self.skipWaiting())
 ));
 self.addEventListener("activate",event=>event.waitUntil(
   caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key))))
@@ -18,7 +18,7 @@ self.addEventListener("fetch",event=>{
   const url=new URL(event.request.url);
   const isAppShell=/\.(html|css|js|webmanifest)$/.test(url.pathname) || url.pathname.endsWith("/");
   if(isAppShell){
-    event.respondWith(fetch(event.request).then(response=>{
+    event.respondWith(fetch(event.request,{cache:"no-cache"}).then(response=>{
       if(response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));}
       return response;
     }).catch(()=>caches.match(event.request).then(cached=>cached||caches.match("./index.html"))));
