@@ -515,14 +515,24 @@ function makeLoop(buffer,filter){
   function startGps(){
     if(!("geolocation" in navigator)) return gpsFail("Dieses Gerät bzw. dieser Browser unterstützt keine Standortabfrage. Der GPS-Modus ist am PC meist nicht nutzbar – bitte auf einem Smartphone verwenden.");
     if(window.isSecureContext === false) return gpsFail("Der Standortzugriff funktioniert nur über eine gesicherte Verbindung (HTTPS). Bitte die Seite über HTTPS öffnen.");
-    s.gpsFixes = 0; s.gpsNullCount = 0; s.gpsLastSpeed = 0; s.gpsAccel = 0; s.gpsLastFix = performance.now(); s.gpsGearTime = 0;
+    s.gpsFixes = 0; s.gpsNullCount = 0; s.gpsRef = null; s.gpsLastSpeed = 0; s.gpsAccel = 0; s.gpsLastFix = performance.now(); s.gpsGearTime = 0;
     s.gpsWatch = navigator.geolocation.watchPosition(pos => {
-      const v = pos.coords.speed;
+      let v = pos.coords.speed;
       s.gpsFixes++;
+      const c = pos.coords, ts = pos.timestamp || Date.now();
       if(v === null || v === undefined || isNaN(v)) {
-        // Viele PCs liefern Positionen (WLAN), aber keine Geschwindigkeit.
-        if(++s.gpsNullCount >= 5 && s.gpsFixes === s.gpsNullCount) gpsFail("Es liegen keine GPS-Geschwindigkeitsdaten vor. Am PC ist das üblich – bitte auf einem Smartphone mit GPS im Freien verwenden.");
-        return;
+        // Backup: Geschwindigkeit aus der Positionsänderung berechnen (iOS/WLAN-Ortung liefern oft speed=null)
+        const ref = s.gpsRef;
+        if(!ref) { s.gpsRef = {lat: c.latitude, lon: c.longitude, t: ts}; return; }
+        const dt = (ts - ref.t) / 1000;
+        if(dt < 1) return;
+        const R = 6371000, rad = Math.PI / 180;
+        const dLat = (c.latitude - ref.lat) * rad, dLon = (c.longitude - ref.lon) * rad;
+        const h = Math.sin(dLat/2)**2 + Math.cos(ref.lat*rad) * Math.cos(c.latitude*rad) * Math.sin(dLon/2)**2;
+        const dist = 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+        const noise = Math.max(3, (c.accuracy || 10) * 0.5);   // Positionsrauschen im Stand ignorieren
+        if(dist < noise) { v = 0; if(dt > 5) s.gpsRef = {lat: c.latitude, lon: c.longitude, t: ts}; }
+        else { v = dist / dt; s.gpsRef = {lat: c.latitude, lon: c.longitude, t: ts}; }
       }
       s.gpsNullCount = 0;
       const kmh = Math.max(0, v * 3.6);
